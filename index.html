@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>每日减重</title>
+    <title>每日减重 · myfit 数据库版</title>
     <!-- Appwrite SDK -->
     <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0/dist/umd/sdk.min.js"></script>
     <!-- Chart.js -->
@@ -200,39 +200,11 @@
             color: #4f7a9e;
             margin-left: 8px;
         }
-        .config-note {
-            background: #fff3e0;
-            border-radius: 20px;
-            padding: 12px;
-            margin-bottom: 16px;
-            font-size: 13px;
-            color: #b85c00;
-            border-left: 4px solid #ff9800;
-        }
     </style>
 </head>
 <body>
-    <!-- 配置遮罩（首次需要设置Appwrite信息） -->
-    <div id="configOverlay" class="init-overlay">
-        <div class="init-card">
-            <h3>⚙️ 首次配置</h3>
-            <div class="init-desc">请在Appwrite控制台复制以下信息</div>
-            <div class="init-field">
-                <label>🔹 Project ID</label>
-                <input type="text" id="configProjectId" placeholder="例如: 6789abcd" value="">
-                <p style="font-size:11px; color:#888;">Appwrite项目设置 → Project ID</p>
-            </div>
-            <div class="init-field">
-                <label>🔹 Database ID</label>
-                <input type="text" id="configDatabaseId" placeholder="例如: myfit_db" value="myfit_db">
-                <p style="font-size:11px; color:#888;">数据库页面 → 复制ID</p>
-            </div>
-            <button class="init-btn" id="saveConfigBtn">保存配置</button>
-        </div>
-    </div>
-
     <!-- 登录/初始化遮罩 -->
-    <div id="initOverlay" class="init-overlay hidden">
+    <div id="initOverlay" class="init-overlay">
         <div class="init-card">
             <h3>🔑 输入用户名</h3>
             <div class="init-desc">新用户会自动进入初始化设置</div>
@@ -266,10 +238,6 @@
         <div class="username-bar">
             <span class="username-display" id="currentUsername"></span>
             <button class="switch-user-btn" id="switchUserBtn">切换用户</button>
-        </div>
-
-        <div class="config-note hidden" id="configNote">
-            ⚠️ 请先在右上角齿轮图标配置Appwrite
         </div>
 
         <div class="target-section">
@@ -313,39 +281,29 @@
         </div>
     </div>
 
-    <!-- 设置齿轮按钮 -->
-    <div style="position:fixed; top:16px; right:16px; z-index:1000;">
-        <button id="configGearBtn" style="background:white; border:none; border-radius:50%; width:48px; height:48px; font-size:24px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.1);">⚙️</button>
-    </div>
-
     <script>
         (function() {
-            // ---------- Appwrite 配置（初始占位）----------
-            let APPWRITE_PROJECT_ID = '';
-            let APPWRITE_DATABASE_ID = '';
+            // ---------- Appwrite 配置 ----------
+            const APPWRITE_ENDPOINT = 'https://nyc.cloud.appwrite.io/v1';
+            const APPWRITE_PROJECT_ID = 'myfit';
+            const APPWRITE_DATABASE_ID = 'myfit_db';
             const USERS_COLLECTION_ID = 'users';
             const RECORDS_COLLECTION_ID = 'fit_records';
 
-            // Appwrite 客户端
+            // 初始化 Appwrite 客户端
             const client = new Appwrite.Client();
-            let databases = null;
-            let isAppwriteConfigured = false;
+            client.setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID);
+            const databases = new Appwrite.Databases(client);
 
             // ---------- 全局变量 ----------
             let chartInstance = null;
-            let currentUser = null; // 用户信息对象
-            let rawEntries = {}; // 本地缓存 { date: [weights] }
+            let currentUser = null;
+            let rawEntries = {};
             let renderTimeout = null;
 
             // ---------- 工具函数 ----------
             function getTodayDateStr() {
                 const d = new Date();
-                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-            }
-
-            function getTomorrowDateStr() {
-                const d = new Date();
-                d.setDate(d.getDate() + 1);
                 return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
             }
 
@@ -363,7 +321,6 @@
                 return dates;
             }
 
-            // 计算健康体重范围
             function getHealthyWeightRange(heightCm) {
                 const h = heightCm / 100;
                 return {
@@ -372,7 +329,6 @@
                 };
             }
 
-            // 计算目标体重（健康上限）
             function computeTargetWeight(weight, heightCm) {
                 const h = heightCm / 100;
                 const currentBMI = weight / (h * h);
@@ -382,7 +338,6 @@
                 return weight;
             }
 
-            // 生成每日目标（百分比，安全限速）
             function generateDailyTargets(startWeight, targetWeight, startDateStr) {
                 const totalLoss = startWeight - targetWeight;
                 if (totalLoss <= 0) return [{ date: startDateStr, target: startWeight }];
@@ -408,48 +363,8 @@
                 return dates;
             }
 
-            // 保存配置到 localStorage
-            function saveConfig(projectId, databaseId) {
-                localStorage.setItem('appwrite_project_id', projectId);
-                localStorage.setItem('appwrite_database_id', databaseId);
-                APPWRITE_PROJECT_ID = projectId;
-                APPWRITE_DATABASE_ID = databaseId;
-                
-                client.setEndpoint('https://cloud.appwrite.io/v1').setProject(projectId);
-                databases = new Appwrite.Databases(client);
-                isAppwriteConfigured = true;
-                
-                document.getElementById('configOverlay').classList.add('hidden');
-                
-                // 尝试自动登录
-                const lastUser = localStorage.getItem('lastUsername');
-                if (lastUser) {
-                    login(lastUser);
-                } else {
-                    document.getElementById('initOverlay').classList.remove('hidden');
-                }
-            }
-
-            // 加载配置
-            function loadConfig() {
-                const projectId = localStorage.getItem('appwrite_project_id');
-                const databaseId = localStorage.getItem('appwrite_database_id');
-                
-                if (projectId && databaseId) {
-                    APPWRITE_PROJECT_ID = projectId;
-                    APPWRITE_DATABASE_ID = databaseId;
-                    client.setEndpoint('https://cloud.appwrite.io/v1').setProject(projectId);
-                    databases = new Appwrite.Databases(client);
-                    isAppwriteConfigured = true;
-                    document.getElementById('configOverlay').classList.add('hidden');
-                    return true;
-                }
-                return false;
-            }
-
             // ---------- 云端操作 ----------
             async function findUserByUsername(username) {
-                if (!isAppwriteConfigured) return null;
                 try {
                     const response = await databases.listDocuments(
                         APPWRITE_DATABASE_ID,
@@ -464,7 +379,6 @@
             }
 
             async function createUser(username, weight, height) {
-                if (!isAppwriteConfigured) return null;
                 const targetWeight = computeTargetWeight(weight, height);
                 const startDate = getTodayDateStr();
                 const dailySeries = generateDailyTargets(weight, targetWeight, startDate);
@@ -477,7 +391,6 @@
                     target_weight: targetWeight,
                     target_date: targetDate,
                     daily_series: JSON.stringify(dailySeries)
-                    // $createdAt 和 $updatedAt 自动生成
                 };
                 
                 try {
@@ -495,7 +408,6 @@
             }
 
             async function fetchUserRecords(username) {
-                if (!isAppwriteConfigured) return {};
                 try {
                     const response = await databases.listDocuments(
                         APPWRITE_DATABASE_ID,
@@ -508,7 +420,6 @@
                     
                     const entries = {};
                     response.documents.forEach(doc => {
-                        // entries 字段存储为字符串数组
                         entries[doc.date] = doc.entries || [];
                     });
                     return entries;
@@ -519,13 +430,11 @@
             }
 
             async function saveRecord(username, date, entries) {
-                if (!isAppwriteConfigured) return;
                 const avg = entries.length > 0 
                     ? Math.round((entries.reduce((a,b)=>a+b,0) / entries.length) * 100) / 100
                     : null;
                 
                 try {
-                    // 先查找是否存在
                     const existing = await databases.listDocuments(
                         APPWRITE_DATABASE_ID,
                         RECORDS_COLLECTION_ID,
@@ -538,13 +447,11 @@
                     const recordData = {
                         username,
                         date,
-                        entries,  // 直接存数组，Appwrite会自动处理
+                        entries,
                         avg_weight: avg
-                        // $createdAt 和 $updatedAt 自动处理
                     };
                     
                     if (existing.documents.length > 0) {
-                        // 更新
                         await databases.updateDocument(
                             APPWRITE_DATABASE_ID,
                             RECORDS_COLLECTION_ID,
@@ -552,7 +459,6 @@
                             recordData
                         );
                     } else {
-                        // 创建
                         await databases.createDocument(
                             APPWRITE_DATABASE_ID,
                             RECORDS_COLLECTION_ID,
@@ -593,7 +499,6 @@
                     if (found) {
                         document.getElementById('todayGoalWeight').innerHTML = found.target + '<small>kg</small>';
                     } else {
-                        // 如果超出计划，显示最后一个目标
                         const last = dailySeries[dailySeries.length - 1];
                         document.getElementById('todayGoalWeight').innerHTML = (last ? last.target : '--') + '<small>kg</small>';
                     }
@@ -609,7 +514,6 @@
                 updateTodayGoal();
             }
 
-            // 渲染图表
             function renderChart() {
                 if (!currentUser) return;
                 if (renderTimeout) clearTimeout(renderTimeout);
@@ -628,7 +532,6 @@
                 
                 const targetData = displayDates.map(date => targetMap.get(date) || null);
                 
-                // 计算每日平均
                 const avgMap = new Map();
                 Object.entries(rawEntries).forEach(([date, entries]) => {
                     if (entries.length > 0) {
@@ -691,7 +594,6 @@
                 }
             }
 
-            // 同步云端到本地
             async function syncFromCloud(username) {
                 document.getElementById('syncStatus').innerText = '⏳ 同步中...';
                 const records = await fetchUserRecords(username);
@@ -705,7 +607,6 @@
                 }, 2000);
             }
 
-            // 推送本地到云端
             async function pushToCloud(username, date, entries) {
                 await saveRecord(username, date, entries);
                 rawEntries[date] = entries;
@@ -715,16 +616,9 @@
                 }, 1000);
             }
 
-            // 登录/切换用户
             async function login(username) {
-                if (!isAppwriteConfigured) {
-                    alert('请先配置Appwrite');
-                    return;
-                }
-                
                 const user = await findUserByUsername(username);
                 if (user) {
-                    // 老用户
                     currentUser = user;
                     localStorage.setItem('lastUsername', username);
                     await syncFromCloud(username);
@@ -734,7 +628,6 @@
                     document.getElementById('currentUsername').innerText = username;
                     refreshTopMeta();
                 } else {
-                    // 新用户，显示身高体重输入
                     document.getElementById('initOverlay').classList.add('hidden');
                     document.getElementById('newUserOverlay').classList.remove('hidden');
                     document.getElementById('newUserOverlay').dataset.username = username;
@@ -745,51 +638,22 @@
             document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('todayDateTag').innerText = getTodayDateStr();
                 
-                // 尝试加载配置
-                const configured = loadConfig();
-                
-                if (!configured) {
-                    document.getElementById('configOverlay').classList.remove('hidden');
+                const lastUser = localStorage.getItem('lastUsername');
+                if (lastUser) {
+                    login(lastUser);
                 } else {
-                    // 尝试自动登录
-                    const lastUser = localStorage.getItem('lastUsername');
-                    if (lastUser) {
-                        login(lastUser);
-                    } else {
-                        document.getElementById('initOverlay').classList.remove('hidden');
-                    }
+                    document.getElementById('initOverlay').classList.remove('hidden');
                 }
 
-                // 配置齿轮按钮
-                document.getElementById('configGearBtn').addEventListener('click', function() {
-                    document.getElementById('configOverlay').classList.remove('hidden');
-                });
-
-                // 保存配置
-                document.getElementById('saveConfigBtn').addEventListener('click', function() {
-                    const projectId = document.getElementById('configProjectId').value.trim();
-                    const databaseId = document.getElementById('configDatabaseId').value.trim();
-                    
-                    if (!projectId || !databaseId) {
-                        alert('请填写完整信息');
-                        return;
-                    }
-                    
-                    saveConfig(projectId, databaseId);
-                });
-
-                // 登录按钮
                 document.getElementById('loginBtn').addEventListener('click', async function() {
                     const username = document.getElementById('usernameInput').value.trim();
                     if (!username) {
                         alert('请输入用户名');
                         return;
                     }
-                    
                     await login(username);
                 });
 
-                // 新用户保存
                 document.getElementById('saveNewUserBtn').addEventListener('click', async function() {
                     const username = document.getElementById('newUserOverlay').dataset.username;
                     const weight = parseFloat(document.getElementById('newWeight').value);
@@ -813,13 +677,8 @@
                     }
                 });
 
-                // 录入体重
                 document.getElementById('submitWeightBtn').addEventListener('click', async function() {
                     if (!currentUser) return;
-                    if (!isAppwriteConfigured) {
-                        alert('请先配置Appwrite');
-                        return;
-                    }
                     
                     const input = document.getElementById('todayWeightInput');
                     const weight = parseFloat(input.value);
@@ -832,7 +691,6 @@
                     if (!rawEntries[today]) rawEntries[today] = [];
                     rawEntries[today].push(weight);
                     
-                    // 推送到云端
                     await pushToCloud(currentUser.username, today, rawEntries[today]);
                     
                     updateTodayUI();
@@ -841,7 +699,6 @@
                     input.value = '';
                 });
 
-                // 切换用户
                 document.getElementById('switchUserBtn').addEventListener('click', function() {
                     currentUser = null;
                     localStorage.removeItem('lastUsername');
