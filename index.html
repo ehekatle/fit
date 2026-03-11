@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>每日减重</title>
-    <!-- Appwrite SDK -->
+    <!-- Appwrite SDK (使用备用CDN确保加载成功) -->
     <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0/dist/umd/sdk.min.js"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -200,6 +200,15 @@
             color: #4f7a9e;
             margin-left: 8px;
         }
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 20px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            border-left: 4px solid #c62828;
+        }
     </style>
 </head>
 <body>
@@ -208,6 +217,7 @@
         <div class="init-card">
             <h3>🔑 输入用户名</h3>
             <div class="init-desc">新用户会自动进入初始化设置</div>
+            <div id="dbError" class="error-message hidden"></div>
             <div class="init-field">
                 <label>用户名</label>
                 <input type="text" id="usernameInput" placeholder="例如: john" value="">
@@ -283,23 +293,65 @@
 
     <script>
         (function() {
-            // ---------- Appwrite 配置 ----------
+            // ---------- Appwrite 配置 (根据您的截图) ----------
             const APPWRITE_ENDPOINT = 'https://nyc.cloud.appwrite.io/v1';
             const APPWRITE_PROJECT_ID = 'myfit';
             const APPWRITE_DATABASE_ID = 'myfit_db';
             const USERS_COLLECTION_ID = 'users';
             const RECORDS_COLLECTION_ID = 'fit_records';
 
-            // 初始化 Appwrite 客户端
-            const client = new Appwrite.Client();
-            client.setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID);
-            const databases = new Appwrite.Databases(client);
-
-            // ---------- 全局变量 ----------
+            // 全局变量
+            let client = null;
+            let databases = null;
+            let isAppwriteReady = false;
             let chartInstance = null;
             let currentUser = null;
             let rawEntries = {};
             let renderTimeout = null;
+
+            // ---------- 初始化Appwrite ----------
+            function initAppwrite() {
+                try {
+                    if (typeof Appwrite === 'undefined') {
+                        showError('Appwrite SDK 加载失败，请刷新页面重试');
+                        return false;
+                    }
+                    
+                    client = new Appwrite.Client();
+                    client.setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID);
+                    databases = new Appwrite.Databases(client);
+                    isAppwriteReady = true;
+                    
+                    // 测试连接
+                    testConnection();
+                    return true;
+                } catch (error) {
+                    console.error('Appwrite初始化失败:', error);
+                    showError('数据库连接失败: ' + error.message);
+                    return false;
+                }
+            }
+
+            // 测试数据库连接
+            async function testConnection() {
+                try {
+                    // 尝试列出集合（仅测试权限）
+                    await databases.listDocuments(APPWRITE_DATABASE_ID, USERS_COLLECTION_ID, [Appwrite.Query.limit(1)]);
+                    console.log('数据库连接成功');
+                } catch (error) {
+                    console.error('数据库连接测试失败:', error);
+                    showError('无法连接到数据库，请检查：\n1. Project ID 是否正确\n2. Database ID 是否正确\n3. 集合是否已创建\n4. 权限设置是否正确');
+                }
+            }
+
+            // 显示错误信息
+            function showError(message) {
+                const errorEl = document.getElementById('dbError');
+                if (errorEl) {
+                    errorEl.classList.remove('hidden');
+                    errorEl.innerText = message;
+                }
+            }
 
             // ---------- 工具函数 ----------
             function getTodayDateStr() {
@@ -365,6 +417,7 @@
 
             // ---------- 云端操作 ----------
             async function findUserByUsername(username) {
+                if (!isAppwriteReady) throw new Error('数据库未就绪');
                 try {
                     const response = await databases.listDocuments(
                         APPWRITE_DATABASE_ID,
@@ -374,11 +427,12 @@
                     return response.documents.length > 0 ? response.documents[0] : null;
                 } catch (error) {
                     console.error('查找用户失败:', error);
-                    return null;
+                    throw error;
                 }
             }
 
             async function createUser(username, weight, height) {
+                if (!isAppwriteReady) throw new Error('数据库未就绪');
                 const targetWeight = computeTargetWeight(weight, height);
                 const startDate = getTodayDateStr();
                 const dailySeries = generateDailyTargets(weight, targetWeight, startDate);
@@ -403,11 +457,12 @@
                     return response;
                 } catch (error) {
                     console.error('创建用户失败:', error);
-                    return null;
+                    throw error;
                 }
             }
 
             async function fetchUserRecords(username) {
+                if (!isAppwriteReady) return {};
                 try {
                     const response = await databases.listDocuments(
                         APPWRITE_DATABASE_ID,
@@ -430,6 +485,7 @@
             }
 
             async function saveRecord(username, date, entries) {
+                if (!isAppwriteReady) return;
                 const avg = entries.length > 0 
                     ? Math.round((entries.reduce((a,b)=>a+b,0) / entries.length) * 100) / 100
                     : null;
@@ -468,6 +524,7 @@
                     }
                 } catch (error) {
                     console.error('保存记录失败:', error);
+                    throw error;
                 }
             }
 
@@ -617,20 +674,24 @@
             }
 
             async function login(username) {
-                const user = await findUserByUsername(username);
-                if (user) {
-                    currentUser = user;
-                    localStorage.setItem('lastUsername', username);
-                    await syncFromCloud(username);
-                    document.getElementById('initOverlay').classList.add('hidden');
-                    document.getElementById('newUserOverlay').classList.add('hidden');
-                    document.getElementById('mainApp').classList.remove('hidden');
-                    document.getElementById('currentUsername').innerText = username;
-                    refreshTopMeta();
-                } else {
-                    document.getElementById('initOverlay').classList.add('hidden');
-                    document.getElementById('newUserOverlay').classList.remove('hidden');
-                    document.getElementById('newUserOverlay').dataset.username = username;
+                try {
+                    const user = await findUserByUsername(username);
+                    if (user) {
+                        currentUser = user;
+                        localStorage.setItem('lastUsername', username);
+                        await syncFromCloud(username);
+                        document.getElementById('initOverlay').classList.add('hidden');
+                        document.getElementById('newUserOverlay').classList.add('hidden');
+                        document.getElementById('mainApp').classList.remove('hidden');
+                        document.getElementById('currentUsername').innerText = username;
+                        refreshTopMeta();
+                    } else {
+                        document.getElementById('initOverlay').classList.add('hidden');
+                        document.getElementById('newUserOverlay').classList.remove('hidden');
+                        document.getElementById('newUserOverlay').dataset.username = username;
+                    }
+                } catch (error) {
+                    showError('登录失败: ' + error.message);
                 }
             }
 
@@ -638,11 +699,16 @@
             document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('todayDateTag').innerText = getTodayDateStr();
                 
-                const lastUser = localStorage.getItem('lastUsername');
-                if (lastUser) {
-                    login(lastUser);
-                } else {
-                    document.getElementById('initOverlay').classList.remove('hidden');
+                // 初始化Appwrite
+                const initSuccess = initAppwrite();
+                
+                if (initSuccess) {
+                    const lastUser = localStorage.getItem('lastUsername');
+                    if (lastUser) {
+                        login(lastUser);
+                    } else {
+                        document.getElementById('initOverlay').classList.remove('hidden');
+                    }
                 }
 
                 document.getElementById('loginBtn').addEventListener('click', async function() {
@@ -664,16 +730,20 @@
                         return;
                     }
                     
-                    const user = await createUser(username, weight, height);
-                    if (user) {
-                        currentUser = user;
-                        localStorage.setItem('lastUsername', username);
-                        rawEntries = {};
-                        await syncFromCloud(username);
-                        document.getElementById('newUserOverlay').classList.add('hidden');
-                        document.getElementById('mainApp').classList.remove('hidden');
-                        document.getElementById('currentUsername').innerText = username;
-                        refreshTopMeta();
+                    try {
+                        const user = await createUser(username, weight, height);
+                        if (user) {
+                            currentUser = user;
+                            localStorage.setItem('lastUsername', username);
+                            rawEntries = {};
+                            await syncFromCloud(username);
+                            document.getElementById('newUserOverlay').classList.add('hidden');
+                            document.getElementById('mainApp').classList.remove('hidden');
+                            document.getElementById('currentUsername').innerText = username;
+                            refreshTopMeta();
+                        }
+                    } catch (error) {
+                        showError('创建用户失败: ' + error.message);
                     }
                 });
 
@@ -691,12 +761,15 @@
                     if (!rawEntries[today]) rawEntries[today] = [];
                     rawEntries[today].push(weight);
                     
-                    await pushToCloud(currentUser.username, today, rawEntries[today]);
-                    
-                    updateTodayUI();
-                    updateTodayGoal();
-                    renderChart();
-                    input.value = '';
+                    try {
+                        await pushToCloud(currentUser.username, today, rawEntries[today]);
+                        updateTodayUI();
+                        updateTodayGoal();
+                        renderChart();
+                        input.value = '';
+                    } catch (error) {
+                        showError('保存失败: ' + error.message);
+                    }
                 });
 
                 document.getElementById('switchUserBtn').addEventListener('click', function() {
