@@ -3,17 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>每日减重 · 首日目标修正</title>
-    <!-- Chart.js 轻量绘图 -->
+    <title>每日减重</title>
+    <!-- Appwrite SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0/dist/umd/sdk.min.js"></script>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             background: #f4f7fb;
             min-height: 100vh;
             display: flex;
@@ -25,9 +23,8 @@
             max-width: 420px;
             width: 100%;
             background: white;
-            border-radius: 32px 32px 28px 28px;
-            box-shadow: 0 12px 30px rgba(0, 20, 30, 0.1);
-            overflow: hidden;
+            border-radius: 32px;
+            box-shadow: 0 12px 30px rgba(0,20,30,0.1);
             padding: 24px 20px 30px;
         }
         .target-section {
@@ -35,7 +32,6 @@
             border-radius: 28px;
             padding: 22px 18px;
             color: white;
-            box-shadow: 0 8px 12px rgba(0,0,0,0.08);
             margin-bottom: 24px;
         }
         .target-row {
@@ -44,37 +40,22 @@
             align-items: center;
             margin-bottom: 12px;
         }
-        .target-label {
-            font-size: 16px;
-            font-weight: 400;
-            opacity: 0.8;
-            letter-spacing: 0.3px;
-        }
         .target-value {
             font-size: 34px;
             font-weight: 700;
-            line-height: 1.1;
         }
-        .target-value small {
-            font-size: 16px;
-            font-weight: 400;
-            opacity: 0.8;
-            margin-left: 4px;
-        }
+        .target-value small { font-size: 16px; opacity: 0.8; margin-left: 4px; }
         .date-value {
             font-size: 20px;
-            font-weight: 500;
             background: rgba(255,255,255,0.15);
             padding: 6px 16px;
             border-radius: 60px;
-            backdrop-filter: blur(2px);
         }
         .sub-meta {
             display: flex;
             justify-content: space-between;
             border-top: 1px solid rgba(255,255,255,0.2);
             padding-top: 14px;
-            margin-top: 4px;
             font-size: 15px;
             opacity: 0.9;
         }
@@ -83,46 +64,22 @@
             border-radius: 24px;
             padding: 18px 16px;
             margin-bottom: 22px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02), 0 2px 4px rgba(0,20,30,0.03);
             border: 1px solid #eef2f6;
-        }
-        .today-label {
-            font-size: 15px;
-            font-weight: 500;
-            color: #576f7f;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-        .today-label span {
-            background: #d0dfeb;
-            color: #1e2e3d;
-            padding: 2px 12px;
-            border-radius: 30px;
-            font-size: 12px;
-            font-weight: 600;
         }
         .weight-input-row {
             display: flex;
-            align-items: baseline;
             gap: 8px;
-            flex-wrap: wrap;
+            margin-top: 10px;
         }
         .weight-input-row input {
             flex: 2;
-            min-width: 160px;
             border: none;
             background: #f2f6fa;
             border-radius: 48px;
             padding: 18px 20px;
             font-size: 28px;
             font-weight: 600;
-            color: #14222e;
             outline: 2px solid transparent;
-            transition: 0.15s;
-            font-variant-numeric: tabular-nums;
         }
         .weight-input-row input:focus {
             outline: 2px solid #2b3a4a;
@@ -131,63 +88,36 @@
         .weight-input-row button {
             flex: 1;
             background: #1d2a36;
-            border: none;
             color: white;
+            border: none;
             font-weight: 600;
             font-size: 18px;
             padding: 18px 10px;
             border-radius: 56px;
             cursor: pointer;
-            transition: 0.2s;
-            box-shadow: 0 4px 8px rgba(0,30,40,0.1);
-            border: 1px solid #304252;
-            letter-spacing: 0.5px;
-            white-space: nowrap;
         }
-        .weight-input-row button:active {
-            background: #0e1a24;
-            transform: scale(0.97);
-        }
+        .weight-input-row button:active { background: #0e1a24; transform: scale(0.97); }
         .today-goal-card {
             background: #eaf0f6;
             border-radius: 40px;
             padding: 18px 22px;
             margin-bottom: 28px;
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            border: 1px solid #cbdae6;
-        }
-        .goal-text {
-            font-size: 18px;
-            font-weight: 500;
-            color: #1c2b38;
         }
         .goal-number {
             font-size: 42px;
             font-weight: 800;
             color: #0c1a26;
-            line-height: 1;
         }
-        .goal-number small {
-            font-size: 18px;
-            font-weight: 400;
-            color: #4c6475;
-        }
+        .goal-number small { font-size: 18px; color: #4c6475; }
         .chart-container {
-            background: #ffffff;
+            background: white;
             border-radius: 32px;
-            padding: 16px 8px 10px 8px;
+            padding: 16px 8px;
             border: 1px solid #dee9f0;
-            box-shadow: inset 0 1px 3px #ffffff, 0 6px 12px rgba(0,20,30,0.04);
         }
-        canvas {
-            display: block;
-            width: 100% !important;
-            height: auto !important;
-            max-height: 220px;
-            border-radius: 20px;
-        }
+        canvas { width: 100% !important; height: auto !important; max-height: 220px; }
         .init-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -198,7 +128,6 @@
             justify-content: center;
             z-index: 999;
             padding: 20px;
-            transition: opacity 0.2s;
         }
         .init-card {
             background: white;
@@ -206,42 +135,24 @@
             width: 100%;
             border-radius: 40px;
             padding: 32px 26px;
-            box-shadow: 0 30px 50px rgba(0, 20, 30, 0.4);
+            box-shadow: 0 30px 50px rgba(0,20,30,0.4);
         }
-        .init-card h3 {
-            font-size: 24px;
-            margin-bottom: 8px;
-            color: #14222e;
-            font-weight: 600;
-        }
-        .init-desc {
-            color: #547183;
-            margin-bottom: 28px;
-            font-size: 15px;
-        }
-        .init-field {
-            margin-bottom: 20px;
-        }
+        .init-card h3 { font-size: 24px; margin-bottom: 8px; color: #14222e; }
+        .init-desc { color: #547183; margin-bottom: 28px; }
+        .init-field { margin-bottom: 20px; }
         .init-field label {
             font-weight: 500;
             color: #1f313f;
             margin-bottom: 6px;
             display: block;
-            font-size: 15px;
         }
         .init-field input {
             width: 100%;
-            padding: 18px 18px;
+            padding: 18px;
             font-size: 22px;
             border-radius: 50px;
             border: 1px solid #b9ccdb;
             background: #f4f9ff;
-            font-weight: 500;
-            outline: none;
-        }
-        .init-field input:focus {
-            border-color: #1d2a36;
-            background: #ffffff;
         }
         .init-btn {
             background: #1d2a36;
@@ -250,65 +161,116 @@
             width: 100%;
             padding: 20px;
             font-size: 20px;
-            font-weight: 600;
             border-radius: 60px;
-            margin-top: 10px;
             cursor: pointer;
         }
-        .hidden {
-            display: none !important;
+        .username-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding: 10px 16px;
+            background: #e9f0f7;
+            border-radius: 40px;
         }
-        .footnote {
-            text-align: center;
-            font-size: 11px;
-            color: #a1b7c8;
-            margin-top: 22px;
-            letter-spacing: 0.2px;
+        .username-display {
+            font-weight: 600;
+            color: #1d2a36;
         }
+        .switch-user-btn {
+            background: none;
+            border: none;
+            color: #2b577c;
+            font-size: 14px;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .hidden { display: none !important; }
         .today-hint {
             font-size: 13px;
             color: #2e5775;
             margin-top: 8px;
-            font-weight: 500;
             background: #e3eef9;
             padding: 6px 14px;
             border-radius: 30px;
             display: inline-block;
         }
-        .github-badge {
-            background: #dde9f5;
-            color: #13293b;
-            padding: 6px 16px;
-            border-radius: 40px;
+        .sync-status {
             font-size: 12px;
-            font-weight: 500;
+            color: #4f7a9e;
+            margin-left: 8px;
+        }
+        .config-note {
+            background: #fff3e0;
+            border-radius: 20px;
+            padding: 12px;
             margin-bottom: 16px;
-            display: inline-block;
+            font-size: 13px;
+            color: #b85c00;
+            border-left: 4px solid #ff9800;
         }
     </style>
 </head>
 <body>
-    <!-- 初始化遮罩 -->
-    <div id="initOverlay" class="init-overlay">
+    <!-- 配置遮罩（首次需要设置Appwrite信息） -->
+    <div id="configOverlay" class="init-overlay">
         <div class="init-card">
-            <h3>⚡ 开始你的减重旅程</h3>
-            <div class="init-desc">输入当前体重与身高，生成科学每日目标（固定百分比，安全减重）。</div>
+            <h3>⚙️ 首次配置</h3>
+            <div class="init-desc">请在Appwrite控制台复制以下信息</div>
+            <div class="init-field">
+                <label>🔹 Project ID</label>
+                <input type="text" id="configProjectId" placeholder="例如: 6789abcd" value="">
+                <p style="font-size:11px; color:#888;">Appwrite项目设置 → Project ID</p>
+            </div>
+            <div class="init-field">
+                <label>🔹 Database ID</label>
+                <input type="text" id="configDatabaseId" placeholder="例如: myfit_db" value="myfit_db">
+                <p style="font-size:11px; color:#888;">数据库页面 → 复制ID</p>
+            </div>
+            <button class="init-btn" id="saveConfigBtn">保存配置</button>
+        </div>
+    </div>
+
+    <!-- 登录/初始化遮罩 -->
+    <div id="initOverlay" class="init-overlay hidden">
+        <div class="init-card">
+            <h3>🔑 输入用户名</h3>
+            <div class="init-desc">新用户会自动进入初始化设置</div>
+            <div class="init-field">
+                <label>用户名</label>
+                <input type="text" id="usernameInput" placeholder="例如: john" value="">
+            </div>
+            <button class="init-btn" id="loginBtn">继续</button>
+        </div>
+    </div>
+
+    <!-- 新用户身高体重输入遮罩 -->
+    <div id="newUserOverlay" class="init-overlay hidden">
+        <div class="init-card">
+            <h3>⚡ 首次设置</h3>
+            <div class="init-desc">输入当前体重与身高，生成科学每日目标</div>
             <div class="init-field">
                 <label>🔹 当前体重 (kg)</label>
-                <input type="number" id="initWeight" step="0.01" min="20" max="250" placeholder="例如 78.50" value="70.00">
+                <input type="number" id="newWeight" step="0.01" min="20" max="250" value="70.00">
             </div>
             <div class="init-field">
                 <label>🔹 身高 (cm)</label>
-                <input type="number" id="initHeight" step="0.1" min="120" max="230" placeholder="例如 175" value="170">
+                <input type="number" id="newHeight" step="0.1" min="120" max="230" value="170">
             </div>
-            <button class="init-btn" id="saveInitBtn">生成我的目标 →</button>
-            <p style="font-size:12px; color:#9bb0c0; margin-top:20px;">* 首日目标等于当日平均体重。</p>
+            <button class="init-btn" id="saveNewUserBtn">开始减重 →</button>
         </div>
     </div>
 
     <!-- 主界面 -->
     <div id="mainApp" class="card hidden">
-        <div class="github-badge">📦 首日目标匹配均值 · 不闪烁</div>
+        <div class="username-bar">
+            <span class="username-display" id="currentUsername"></span>
+            <button class="switch-user-btn" id="switchUserBtn">切换用户</button>
+        </div>
+
+        <div class="config-note hidden" id="configNote">
+            ⚠️ 请先在右上角齿轮图标配置Appwrite
+        </div>
 
         <div class="target-section">
             <div class="target-row">
@@ -329,9 +291,10 @@
             <div class="today-label">
                 📝 今日体重 <span id="todayDateTag"></span>
                 <span id="todayCountBadge" style="background:#c0d6e6;">0次</span>
+                <span class="sync-status" id="syncStatus"></span>
             </div>
             <div class="weight-input-row">
-                <input type="number" id="todayWeightInput" step="0.01" placeholder="例如 77.20" value="">
+                <input type="number" id="todayWeightInput" step="0.01" placeholder="例如 77.20">
                 <button id="submitWeightBtn">+ 录入</button>
             </div>
             <div id="todayMeanHint" class="today-hint">✨ 当前均值: -- kg</div>
@@ -345,243 +308,354 @@
         <div class="chart-container">
             <canvas id="weightChart" width="400" height="200"></canvas>
         </div>
-        <div class="footnote">⚡ 首日目标=平均体重 · 图表防抖</div>
+        <div style="text-align:center; font-size:11px; color:#a1b7c8; margin-top:16px;">
+            ⚡ 数据实时同步至Appwrite · 以云端为准
+        </div>
+    </div>
+
+    <!-- 设置齿轮按钮 -->
+    <div style="position:fixed; top:16px; right:16px; z-index:1000;">
+        <button id="configGearBtn" style="background:white; border:none; border-radius:50%; width:48px; height:48px; font-size:24px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.1);">⚙️</button>
     </div>
 
     <script>
         (function() {
-            const STORAGE_INIT = 'weight_goal_init';         
-            const STORAGE_RAW_ENTRIES = 'weight_raw_entries'; 
+            // ---------- Appwrite 配置（初始占位）----------
+            let APPWRITE_PROJECT_ID = '';
+            let APPWRITE_DATABASE_ID = '';
+            const USERS_COLLECTION_ID = 'users';
+            const RECORDS_COLLECTION_ID = 'fit_records';
 
+            // Appwrite 客户端
+            const client = new Appwrite.Client();
+            let databases = null;
+            let isAppwriteConfigured = false;
+
+            // ---------- 全局变量 ----------
             let chartInstance = null;
-            let initData = null;                 
-            let rawEntries = {};     
+            let currentUser = null; // 用户信息对象
+            let rawEntries = {}; // 本地缓存 { date: [weights] }
             let renderTimeout = null;
 
             // ---------- 工具函数 ----------
             function getTodayDateStr() {
                 const d = new Date();
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
+                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
             }
 
             function getTomorrowDateStr() {
                 const d = new Date();
                 d.setDate(d.getDate() + 1);
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
+                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
             }
 
-            function parseDate(str) {
-                const [y, m, d] = str.split('-').map(Number);
-                return new Date(y, m-1, d);
+            function getDisplayDates() {
+                const today = new Date();
+                const dates = [];
+                for (let i = 9; i >= 0; i--) {
+                    const d = new Date(today);
+                    d.setDate(today.getDate() - i);
+                    dates.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+                }
+                const tomorrow = new Date(today);
+                tomorrow.setDate(today.getDate() + 1);
+                dates.push(`${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`);
+                return dates;
             }
 
+            // 计算健康体重范围
             function getHealthyWeightRange(heightCm) {
                 const h = heightCm / 100;
-                const low = (18.5 * h * h).toFixed(1);
-                const high = (24.0 * h * h).toFixed(1);
-                return { low, high };
+                return {
+                    low: (18.5 * h * h).toFixed(1),
+                    high: (24.0 * h * h).toFixed(1)
+                };
             }
 
+            // 计算目标体重（健康上限）
             function computeTargetWeight(weight, heightCm) {
                 const h = heightCm / 100;
                 const currentBMI = weight / (h * h);
-                const healthyUpperWeight = 24.0 * h * h;
                 if (currentBMI > 24) {
-                    return Math.round(healthyUpperWeight * 100) / 100;
-                } else {
-                    return weight;
+                    return Math.round((24.0 * h * h) * 100) / 100;
                 }
+                return weight;
             }
 
-            /**
-             * 科学每日百分比减重：
-             * - 安全范围：每日减重不超过0.1kg
-             * - 固定百分比每日递减
-             * - 注意：首日目标（startDate）会被设置为 startWeight
-             */
-            function generateDailyTargetsByPercentage(startWeight, targetWeight, startDateStr) {
+            // 生成每日目标（百分比，安全限速）
+            function generateDailyTargets(startWeight, targetWeight, startDateStr) {
                 const totalLoss = startWeight - targetWeight;
-                if (totalLoss <= 0) {
-                    // 无需减重，目标保持恒定 (只有一天)
-                    return [{ date: startDateStr, target: startWeight }];
-                }
+                if (totalLoss <= 0) return [{ date: startDateStr, target: startWeight }];
 
-                const maxDailyLoss = 0.1; 
+                const maxDailyLoss = 0.1;
                 const minDaysNeeded = Math.ceil(totalLoss / maxDailyLoss);
-                
                 const ratio = targetWeight / startWeight;
                 const dailyRate = 1 - Math.pow(ratio, 1 / minDaysNeeded);
                 
                 const dates = [];
-                const start = parseDate(startDateStr);
+                const start = new Date(startDateStr);
                 let currentWeight = startWeight;
                 
-                // i=0 是第一天，目标 = startWeight
                 for (let i = 0; i <= minDaysNeeded; i++) {
-                    const currentDate = new Date(start);
-                    currentDate.setDate(start.getDate() + i);
-                    const year = currentDate.getFullYear();
-                    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-                    const day = String(currentDate.getDate()).padStart(2, '0');
-                    const dateStr = `${year}-${month}-${day}`;
+                    const d = new Date(start);
+                    d.setDate(start.getDate() + i);
+                    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
                     
-                    let target;
-                    if (i === 0) {
-                        target = startWeight;  // 第一天就是起始体重
-                    } else {
-                        // 第二天开始才按百分比递减
-                        target = currentWeight * (1 - dailyRate);
-                    }
-                    target = Math.round(target * 100) / 100;
+                    const target = i === 0 ? startWeight : Math.round(currentWeight * (1 - dailyRate) * 100) / 100;
                     dates.push({ date: dateStr, target });
-                    
-                    currentWeight = target; // 用于下一天计算
+                    currentWeight = target;
                 }
                 return dates;
             }
 
-            function getTargetDateFromSeries(series) {
-                if (!series || series.length === 0) return getTodayDateStr();
-                return series[series.length - 1].date;
-            }
-
-            // 从rawEntries计算每日平均体重
-            function computeDailyAverages() {
-                const avgMap = new Map();
-                for (const [date, arr] of Object.entries(rawEntries)) {
-                    if (arr.length === 0) continue;
-                    const sum = arr.reduce((acc, w) => acc + w, 0);
-                    const avg = Math.round((sum / arr.length) * 100) / 100;
-                    avgMap.set(date, avg);
-                }
-                return avgMap;
-            }
-
-            // 获取最近10天 + 明天 的日期范围 (共11个点)
-            function getDisplayDates() {
-                const today = new Date();
-                const dates = [];
-                // 最近10天 (从今天往前推9天，共10天)
-                for (let i = 9; i >= 0; i--) {
-                    const d = new Date(today);
-                    d.setDate(today.getDate() - i);
-                    const year = d.getFullYear();
-                    const month = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    dates.push(`${year}-${month}-${day}`);
-                }
-                // 加上明天
-                const tomorrow = new Date(today);
-                tomorrow.setDate(today.getDate() + 1);
-                const year = tomorrow.getFullYear();
-                const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
-                const day = String(tomorrow.getDate()).padStart(2, '0');
-                dates.push(`${year}-${month}-${day}`);
+            // 保存配置到 localStorage
+            function saveConfig(projectId, databaseId) {
+                localStorage.setItem('appwrite_project_id', projectId);
+                localStorage.setItem('appwrite_database_id', databaseId);
+                APPWRITE_PROJECT_ID = projectId;
+                APPWRITE_DATABASE_ID = databaseId;
                 
-                return dates;
+                client.setEndpoint('https://cloud.appwrite.io/v1').setProject(projectId);
+                databases = new Appwrite.Databases(client);
+                isAppwriteConfigured = true;
+                
+                document.getElementById('configOverlay').classList.add('hidden');
+                
+                // 尝试自动登录
+                const lastUser = localStorage.getItem('lastUsername');
+                if (lastUser) {
+                    login(lastUser);
+                } else {
+                    document.getElementById('initOverlay').classList.remove('hidden');
+                }
             }
 
-            // 更新今日平均提示
+            // 加载配置
+            function loadConfig() {
+                const projectId = localStorage.getItem('appwrite_project_id');
+                const databaseId = localStorage.getItem('appwrite_database_id');
+                
+                if (projectId && databaseId) {
+                    APPWRITE_PROJECT_ID = projectId;
+                    APPWRITE_DATABASE_ID = databaseId;
+                    client.setEndpoint('https://cloud.appwrite.io/v1').setProject(projectId);
+                    databases = new Appwrite.Databases(client);
+                    isAppwriteConfigured = true;
+                    document.getElementById('configOverlay').classList.add('hidden');
+                    return true;
+                }
+                return false;
+            }
+
+            // ---------- 云端操作 ----------
+            async function findUserByUsername(username) {
+                if (!isAppwriteConfigured) return null;
+                try {
+                    const response = await databases.listDocuments(
+                        APPWRITE_DATABASE_ID,
+                        USERS_COLLECTION_ID,
+                        [Appwrite.Query.equal('username', username)]
+                    );
+                    return response.documents.length > 0 ? response.documents[0] : null;
+                } catch (error) {
+                    console.error('查找用户失败:', error);
+                    return null;
+                }
+            }
+
+            async function createUser(username, weight, height) {
+                if (!isAppwriteConfigured) return null;
+                const targetWeight = computeTargetWeight(weight, height);
+                const startDate = getTodayDateStr();
+                const dailySeries = generateDailyTargets(weight, targetWeight, startDate);
+                const targetDate = dailySeries[dailySeries.length - 1].date;
+                
+                const userData = {
+                    username,
+                    height,
+                    start_weight: weight,
+                    target_weight: targetWeight,
+                    target_date: targetDate,
+                    daily_series: JSON.stringify(dailySeries)
+                    // $createdAt 和 $updatedAt 自动生成
+                };
+                
+                try {
+                    const response = await databases.createDocument(
+                        APPWRITE_DATABASE_ID,
+                        USERS_COLLECTION_ID,
+                        'unique()',
+                        userData
+                    );
+                    return response;
+                } catch (error) {
+                    console.error('创建用户失败:', error);
+                    return null;
+                }
+            }
+
+            async function fetchUserRecords(username) {
+                if (!isAppwriteConfigured) return {};
+                try {
+                    const response = await databases.listDocuments(
+                        APPWRITE_DATABASE_ID,
+                        RECORDS_COLLECTION_ID,
+                        [
+                            Appwrite.Query.equal('username', username),
+                            Appwrite.Query.limit(1000)
+                        ]
+                    );
+                    
+                    const entries = {};
+                    response.documents.forEach(doc => {
+                        // entries 字段存储为字符串数组
+                        entries[doc.date] = doc.entries || [];
+                    });
+                    return entries;
+                } catch (error) {
+                    console.error('获取记录失败:', error);
+                    return {};
+                }
+            }
+
+            async function saveRecord(username, date, entries) {
+                if (!isAppwriteConfigured) return;
+                const avg = entries.length > 0 
+                    ? Math.round((entries.reduce((a,b)=>a+b,0) / entries.length) * 100) / 100
+                    : null;
+                
+                try {
+                    // 先查找是否存在
+                    const existing = await databases.listDocuments(
+                        APPWRITE_DATABASE_ID,
+                        RECORDS_COLLECTION_ID,
+                        [
+                            Appwrite.Query.equal('username', username),
+                            Appwrite.Query.equal('date', date)
+                        ]
+                    );
+                    
+                    const recordData = {
+                        username,
+                        date,
+                        entries,  // 直接存数组，Appwrite会自动处理
+                        avg_weight: avg
+                        // $createdAt 和 $updatedAt 自动处理
+                    };
+                    
+                    if (existing.documents.length > 0) {
+                        // 更新
+                        await databases.updateDocument(
+                            APPWRITE_DATABASE_ID,
+                            RECORDS_COLLECTION_ID,
+                            existing.documents[0].$id,
+                            recordData
+                        );
+                    } else {
+                        // 创建
+                        await databases.createDocument(
+                            APPWRITE_DATABASE_ID,
+                            RECORDS_COLLECTION_ID,
+                            'unique()',
+                            recordData
+                        );
+                    }
+                } catch (error) {
+                    console.error('保存记录失败:', error);
+                }
+            }
+
+            // ---------- UI 更新 ----------
             function updateTodayUI() {
                 const today = getTodayDateStr();
                 const entries = rawEntries[today] || [];
-                const count = entries.length;
-                document.getElementById('todayCountBadge').innerText = count + '次';
-
-                if (count > 0) {
-                    const sum = entries.reduce((a, b) => a + b, 0);
-                    const mean = (sum / count).toFixed(2);
-                    document.getElementById('todayMeanHint').innerHTML = `✨ 当前均值: ${mean} kg`;
+                document.getElementById('todayCountBadge').innerText = entries.length + '次';
+                
+                if (entries.length > 0) {
+                    const avg = entries.reduce((a,b)=>a+b,0) / entries.length;
+                    document.getElementById('todayMeanHint').innerHTML = `✨ 当前均值: ${avg.toFixed(2)} kg`;
                 } else {
-                    document.getElementById('todayMeanHint').innerHTML = `✨ 当前均值: -- kg`;
+                    document.getElementById('todayMeanHint').innerHTML = '✨ 当前均值: -- kg';
                 }
             }
 
             function updateTodayGoal() {
-                if (!initData || !initData.dailySeries) return;
-                
+                if (!currentUser) return;
                 const today = getTodayDateStr();
-                const avgMap = computeDailyAverages();
+                const entries = rawEntries[today] || [];
                 
-                // 核心修复：如果今天有录入数据，今日目标应该等于今日平均体重
-                if (avgMap.has(today)) {
-                    const todayAvg = avgMap.get(today);
-                    document.getElementById('todayGoalWeight').innerHTML = todayAvg.toFixed(2) + '<small>kg</small>';
+                if (entries.length > 0) {
+                    const avg = entries.reduce((a,b)=>a+b,0) / entries.length;
+                    document.getElementById('todayGoalWeight').innerHTML = avg.toFixed(2) + '<small>kg</small>';
                 } else {
-                    // 如果没有录入，则显示计划中的目标
-                    const found = initData.dailySeries.find(d => d.date === today);
+                    const dailySeries = JSON.parse(currentUser.daily_series);
+                    const found = dailySeries.find(d => d.date === today);
                     if (found) {
                         document.getElementById('todayGoalWeight').innerHTML = found.target + '<small>kg</small>';
                     } else {
-                        const last = initData.dailySeries[initData.dailySeries.length - 1];
+                        // 如果超出计划，显示最后一个目标
+                        const last = dailySeries[dailySeries.length - 1];
                         document.getElementById('todayGoalWeight').innerHTML = (last ? last.target : '--') + '<small>kg</small>';
                     }
                 }
             }
 
-            // 绘制图表 - 使用防抖
+            function refreshTopMeta() {
+                if (!currentUser) return;
+                document.getElementById('displayTargetWeight').innerHTML = currentUser.target_weight + '<small>kg</small>';
+                document.getElementById('displayTargetDate').innerText = currentUser.target_date;
+                const range = getHealthyWeightRange(currentUser.height);
+                document.getElementById('displayBmiRange').innerText = `${range.low} ~ ${range.high} kg`;
+                updateTodayGoal();
+            }
+
+            // 渲染图表
             function renderChart() {
-                if (renderTimeout) {
-                    clearTimeout(renderTimeout);
-                }
+                if (!currentUser) return;
+                if (renderTimeout) clearTimeout(renderTimeout);
                 renderTimeout = setTimeout(() => {
                     actuallyRenderChart();
-                    renderTimeout = null;
                 }, 50);
             }
 
             function actuallyRenderChart() {
-                if (!initData || !initData.dailySeries || initData.dailySeries.length === 0) return;
-
+                if (!currentUser) return;
+                
                 const ctx = document.getElementById('weightChart').getContext('2d');
-                
                 const displayDates = getDisplayDates();
+                const dailySeries = JSON.parse(currentUser.daily_series);
+                const targetMap = new Map(dailySeries.map(d => [d.date, d.target]));
                 
-                // 目标值：仍使用计划中的目标（红色虚线）
-                const targetMap = new Map(initData.dailySeries.map(d => [d.date, d.target]));
-                const targetData = displayDates.map(date => targetMap.has(date) ? targetMap.get(date) : null);
-
-                // 实际体重均值（绿色实线）
-                const avgMap = computeDailyAverages();
-                const actualData = displayDates.map(date => avgMap.has(date) ? avgMap.get(date) : null);
-
-                const labels = displayDates.map((d, index) => {
-                    const mmdd = d.slice(5);
-                    if (index === displayDates.length - 1) {
-                        return `🌟${mmdd}`;
+                const targetData = displayDates.map(date => targetMap.get(date) || null);
+                
+                // 计算每日平均
+                const avgMap = new Map();
+                Object.entries(rawEntries).forEach(([date, entries]) => {
+                    if (entries.length > 0) {
+                        const avg = entries.reduce((a,b)=>a+b,0) / entries.length;
+                        avgMap.set(date, Math.round(avg * 100) / 100);
                     }
-                    return mmdd;
+                });
+                const actualData = displayDates.map(date => avgMap.get(date) || null);
+                
+                const labels = displayDates.map((d, i) => {
+                    const mmdd = d.slice(5);
+                    return i === displayDates.length-1 ? `🌟${mmdd}` : mmdd;
                 });
 
                 if (chartInstance) {
-                    const oldLabels = chartInstance.data.labels;
-                    const oldActual = chartInstance.data.datasets[0].data;
-                    const oldTarget = chartInstance.data.datasets[1].data;
-                    
-                    const labelsSame = JSON.stringify(oldLabels) === JSON.stringify(labels);
-                    const actualSame = JSON.stringify(oldActual) === JSON.stringify(actualData);
-                    const targetSame = JSON.stringify(oldTarget) === JSON.stringify(targetData);
-                    
-                    if (!labelsSame || !actualSame || !targetSame) {
-                        chartInstance.data.labels = labels;
-                        chartInstance.data.datasets[0].data = actualData;
-                        chartInstance.data.datasets[1].data = targetData;
-                        chartInstance.update();
-                    }
+                    chartInstance.data.labels = labels;
+                    chartInstance.data.datasets[0].data = actualData;
+                    chartInstance.data.datasets[1].data = targetData;
+                    chartInstance.update();
                 } else {
                     chartInstance = new Chart(ctx, {
                         type: 'line',
                         data: {
-                            labels: labels,
+                            labels,
                             datasets: [
                                 {
-                                    label: '实际体重 (日均)',
+                                    label: '实际体重',
                                     data: actualData,
                                     borderColor: '#2e7d32',
                                     backgroundColor: 'rgba(46,125,50,0.05)',
@@ -595,161 +669,186 @@
                                     label: '目标体重',
                                     data: targetData,
                                     borderColor: '#d32f2f',
-                                    backgroundColor: 'transparent',
                                     borderDash: [6, 6],
                                     tension: 0,
                                     pointRadius: 2,
-                                    borderWidth: 2.5,
+                                    borderWidth: 2.5
                                 }
                             ]
                         },
                         options: {
                             responsive: true,
                             maintainAspectRatio: true,
-                            plugins: { 
-                                legend: { display: false },
-                                tooltip: { 
-                                    mode: 'index', 
-                                    intersect: false,
-                                    callbacks: {
-                                        label: function(context) {
-                                            let label = context.dataset.label || '';
-                                            if (label) {
-                                                label += ': ';
-                                            }
-                                            if (context.parsed.y !== null) {
-                                                label += context.parsed.y.toFixed(2) + ' kg';
-                                            }
-                                            return label;
-                                        }
-                                    }
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: {
+                                    ticks: { callback: v => v.toFixed(2) + 'kg' }
                                 }
                             },
-                            scales: { 
-                                y: { 
-                                    ticks: { 
-                                        callback: function(value) {
-                                            return value.toFixed(2) + ' kg';
-                                        }
-                                    }
-                                } 
-                            },
-                            animation: {
-                                duration: 0
-                            }
+                            animation: { duration: 0 }
                         }
                     });
                 }
             }
 
-            function refreshTopMeta() {
-                if (!initData) return;
-                document.getElementById('displayTargetWeight').innerHTML = initData.targetWeight + '<small>kg</small>';
-                document.getElementById('displayTargetDate').innerText = initData.targetDate;
-                const range = getHealthyWeightRange(initData.height);
-                document.getElementById('displayBmiRange').innerText = `${range.low} ~ ${range.high} kg`;
-                updateTodayGoal();
-            }
-
-            function persistRawEntries() {
-                localStorage.setItem(STORAGE_RAW_ENTRIES, JSON.stringify(rawEntries));
-            }
-
-            function loadFromStorage() {
-                const savedInit = localStorage.getItem(STORAGE_INIT);
-                if (savedInit) {
-                    try { initData = JSON.parse(savedInit); } catch { initData = null; }
-                } else {
-                    initData = null;
-                }
-
-                const savedRaw = localStorage.getItem(STORAGE_RAW_ENTRIES);
-                if (savedRaw) {
-                    try { rawEntries = JSON.parse(savedRaw); } catch { rawEntries = {}; }
-                } else {
-                    rawEntries = {};
-                }
-
-                if (initData) {
-                    document.getElementById('initOverlay').classList.add('hidden');
-                    document.getElementById('mainApp').classList.remove('hidden');
-                    refreshTopMeta();
-                    updateTodayUI();
-                    renderChart();
-                } else {
-                    document.getElementById('initOverlay').classList.remove('hidden');
-                    document.getElementById('mainApp').classList.add('hidden');
-                }
-            }
-
-            // 初始化目标
-            function initializeGoal(weight, height) {
-                const targetWeight = computeTargetWeight(weight, height);
-                const startDate = getTodayDateStr();
-                
-                const dailySeries = generateDailyTargetsByPercentage(weight, targetWeight, startDate);
-                const targetDate = getTargetDateFromSeries(dailySeries);
-
-                initData = {
-                    startWeight: weight,
-                    targetWeight: targetWeight,
-                    height: height,
-                    startDate: startDate,
-                    targetDate: targetDate,
-                    dailySeries: dailySeries
-                };
-                localStorage.setItem(STORAGE_INIT, JSON.stringify(initData));
-
-                rawEntries = {};
-                persistRawEntries();
-
-                loadFromStorage();
-            }
-
-            // 录入新体重
-            function addWeightEntry(weight) {
-                if (!initData) return;
-                const today = getTodayDateStr();
-
-                if (!rawEntries[today]) {
-                    rawEntries[today] = [];
-                }
-                rawEntries[today].push(weight);
-                persistRawEntries();
-
+            // 同步云端到本地
+            async function syncFromCloud(username) {
+                document.getElementById('syncStatus').innerText = '⏳ 同步中...';
+                const records = await fetchUserRecords(username);
+                rawEntries = records;
                 updateTodayUI();
-                // 关键：更新今日目标（因为今天的目标应该等于新的平均体重）
                 updateTodayGoal();
                 renderChart();
+                document.getElementById('syncStatus').innerText = '✅ 已同步';
+                setTimeout(() => {
+                    document.getElementById('syncStatus').innerText = '';
+                }, 2000);
             }
 
+            // 推送本地到云端
+            async function pushToCloud(username, date, entries) {
+                await saveRecord(username, date, entries);
+                rawEntries[date] = entries;
+                document.getElementById('syncStatus').innerText = '☁️ 已保存';
+                setTimeout(() => {
+                    document.getElementById('syncStatus').innerText = '';
+                }, 1000);
+            }
+
+            // 登录/切换用户
+            async function login(username) {
+                if (!isAppwriteConfigured) {
+                    alert('请先配置Appwrite');
+                    return;
+                }
+                
+                const user = await findUserByUsername(username);
+                if (user) {
+                    // 老用户
+                    currentUser = user;
+                    localStorage.setItem('lastUsername', username);
+                    await syncFromCloud(username);
+                    document.getElementById('initOverlay').classList.add('hidden');
+                    document.getElementById('newUserOverlay').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    document.getElementById('currentUsername').innerText = username;
+                    refreshTopMeta();
+                } else {
+                    // 新用户，显示身高体重输入
+                    document.getElementById('initOverlay').classList.add('hidden');
+                    document.getElementById('newUserOverlay').classList.remove('hidden');
+                    document.getElementById('newUserOverlay').dataset.username = username;
+                }
+            }
+
+            // ---------- 初始化 ----------
             document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('todayDateTag').innerText = getTodayDateStr();
-
-                document.getElementById('saveInitBtn').addEventListener('click', function() {
-                    const weightInput = document.getElementById('initWeight');
-                    const heightInput = document.getElementById('initHeight');
-                    const weight = parseFloat(weightInput.value);
-                    const height = parseFloat(heightInput.value);
-                    if (isNaN(weight) || weight < 20 || weight > 250 || isNaN(height) || height < 120 || height > 230) {
-                        alert('请输入合理的体重(20~250kg)和身高(120~230cm)');
-                        return;
+                
+                // 尝试加载配置
+                const configured = loadConfig();
+                
+                if (!configured) {
+                    document.getElementById('configOverlay').classList.remove('hidden');
+                } else {
+                    // 尝试自动登录
+                    const lastUser = localStorage.getItem('lastUsername');
+                    if (lastUser) {
+                        login(lastUser);
+                    } else {
+                        document.getElementById('initOverlay').classList.remove('hidden');
                     }
-                    initializeGoal(weight, height);
+                }
+
+                // 配置齿轮按钮
+                document.getElementById('configGearBtn').addEventListener('click', function() {
+                    document.getElementById('configOverlay').classList.remove('hidden');
                 });
 
-                document.getElementById('submitWeightBtn').addEventListener('click', function() {
+                // 保存配置
+                document.getElementById('saveConfigBtn').addEventListener('click', function() {
+                    const projectId = document.getElementById('configProjectId').value.trim();
+                    const databaseId = document.getElementById('configDatabaseId').value.trim();
+                    
+                    if (!projectId || !databaseId) {
+                        alert('请填写完整信息');
+                        return;
+                    }
+                    
+                    saveConfig(projectId, databaseId);
+                });
+
+                // 登录按钮
+                document.getElementById('loginBtn').addEventListener('click', async function() {
+                    const username = document.getElementById('usernameInput').value.trim();
+                    if (!username) {
+                        alert('请输入用户名');
+                        return;
+                    }
+                    
+                    await login(username);
+                });
+
+                // 新用户保存
+                document.getElementById('saveNewUserBtn').addEventListener('click', async function() {
+                    const username = document.getElementById('newUserOverlay').dataset.username;
+                    const weight = parseFloat(document.getElementById('newWeight').value);
+                    const height = parseFloat(document.getElementById('newHeight').value);
+                    
+                    if (!username || isNaN(weight) || isNaN(height)) {
+                        alert('请完整填写信息');
+                        return;
+                    }
+                    
+                    const user = await createUser(username, weight, height);
+                    if (user) {
+                        currentUser = user;
+                        localStorage.setItem('lastUsername', username);
+                        rawEntries = {};
+                        await syncFromCloud(username);
+                        document.getElementById('newUserOverlay').classList.add('hidden');
+                        document.getElementById('mainApp').classList.remove('hidden');
+                        document.getElementById('currentUsername').innerText = username;
+                        refreshTopMeta();
+                    }
+                });
+
+                // 录入体重
+                document.getElementById('submitWeightBtn').addEventListener('click', async function() {
+                    if (!currentUser) return;
+                    if (!isAppwriteConfigured) {
+                        alert('请先配置Appwrite');
+                        return;
+                    }
+                    
                     const input = document.getElementById('todayWeightInput');
                     const weight = parseFloat(input.value);
                     if (isNaN(weight) || weight < 10 || weight > 300) {
-                        alert('请填写有效的体重 (10~300kg)');
+                        alert('请输入有效体重 (10-300kg)');
                         return;
                     }
-                    addWeightEntry(weight);
-                    input.value = ''; 
+                    
+                    const today = getTodayDateStr();
+                    if (!rawEntries[today]) rawEntries[today] = [];
+                    rawEntries[today].push(weight);
+                    
+                    // 推送到云端
+                    await pushToCloud(currentUser.username, today, rawEntries[today]);
+                    
+                    updateTodayUI();
+                    updateTodayGoal();
+                    renderChart();
+                    input.value = '';
                 });
 
-                loadFromStorage();
+                // 切换用户
+                document.getElementById('switchUserBtn').addEventListener('click', function() {
+                    currentUser = null;
+                    localStorage.removeItem('lastUsername');
+                    document.getElementById('mainApp').classList.add('hidden');
+                    document.getElementById('initOverlay').classList.remove('hidden');
+                    document.getElementById('usernameInput').value = '';
+                });
             });
         })();
     </script>
