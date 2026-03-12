@@ -198,6 +198,7 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+            position: relative;
         }
 
         .user-info {
@@ -251,13 +252,13 @@
         /* 下拉菜单 */
         .dropdown-menu {
             position: absolute;
-            top: 70px;
-            right: 16px;
+            top: 60px;
+            right: 0;
             background: white;
             border-radius: 16px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             border: 1px solid #f1f5f9;
-            width: 180px;
+            width: 160px;
             z-index: 100;
             display: none;
         }
@@ -654,7 +655,6 @@
 
             // 根据BMI计算目标体重
             function calculateWeightFromBMI(bmi, height) {
-                // 身高单位：cm，转换为米
                 const heightInM = height / 100;
                 return Math.round(bmi * heightInM * heightInM * 100) / 100;
             }
@@ -690,50 +690,74 @@
                             body: JSON.stringify({
                                 event_type: 'save-weight',
                                 client_payload: {
-                                    username,
-                                    data
+                                    username: username,
+                                    data: data
                                 }
                             })
                         });
-                        return response.ok;
-                    } catch {
+                        
+                        if (response.ok) {
+                            localStorage.setItem(APP.SYNC_STATUS_KEY, new Date().toISOString());
+                            this.backupToLocal(username, data);
+                            return true;
+                        }
+                        return false;
+                    } catch (error) {
+                        console.error('保存失败:', error);
+                        this.backupToLocal(username, data);
                         return false;
                     }
                 }
 
                 async loadUserData(username) {
                     try {
-                        const response = await fetch(`https://raw.githubusercontent.com/${this.repo}/main/data/users/${username}.json?t=${Date.now()}`);
+                        const response = await fetch(`https://raw.githubusercontent.com/${this.repo}/main/docs/data/users/${username}.json?t=${Date.now()}`);
                         if (response.ok) {
-                            return await response.json();
+                            const data = await response.json();
+                            this.backupToLocal(username, data);
+                            return data;
                         }
                     } catch (e) {
-                        console.log('加载用户数据失败', e);
+                        console.log('从GitHub加载失败，尝试从本地缓存加载');
                     }
+                    
+                    const localData = localStorage.getItem(`user_${username}_backup`);
+                    if (localData) {
+                        try {
+                            return JSON.parse(localData);
+                        } catch (e) {
+                            console.log('本地缓存解析失败');
+                        }
+                    }
+                    
                     return null;
+                }
+
+                backupToLocal(username, data) {
+                    localStorage.setItem(`user_${username}_backup`, JSON.stringify(data));
                 }
             }
 
             // 主应用
             class WeightApp {
                 constructor() {
-                    this.view = 'auth'; // 'auth' or 'main'
-                    this.authMode = 'login'; // 'login' or 'register'
+                    this.view = 'auth';
+                    this.authMode = 'login';
                     this.currentUser = null;
                     this.userData = null;
                     this.todayEntries = [];
                     this.sync = new GitHubSync(APP.GITHUB_REPO);
                     this.chart = null;
-                    this.chartStartIndex = 0; // 用于图表滑动
+                    this.chartStartIndex = 0;
                     this.showMenu = false;
-                    this.showModal = null; // 'clear', 'import', 'export'
+                    this.showModal = null;
                     this.bmiValue = APP.BMI_DEFAULT;
+                    this.errorMsg = null;
                     
                     this.init();
                 }
 
                 init() {
-                    // 检查是否有保存的登录状态
                     const saved = localStorage.getItem(APP.STORAGE_KEY);
                     if (saved) {
                         try {
@@ -750,14 +774,11 @@
                     this.render();
                 }
 
-                // 检查并填充缺失数据
                 checkAndFillMissingData() {
                     if (!this.userData) return;
 
                     const today = new Date();
-                    const todayStr = formatDate(today);
                     
-                    // 检查最后录入日期
                     const lastEntryDate = this.getLastEntryDate();
                     if (!lastEntryDate) return;
 
@@ -765,7 +786,6 @@
                     const daysDiff = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
 
                     if (daysDiff >= 4) {
-                        // 连续4天未录入，删除数据
                         this.userData = null;
                         this.currentUser = null;
                         localStorage.removeItem(APP.STORAGE_KEY);
@@ -777,8 +797,7 @@
                         return;
                     }
 
-                    if (daysDiff >= 3 && this.userData.progress) {
-                        // 3天未录入，需要填充
+                    if (daysDiff >= 3) {
                         const firstEntryToday = this.getTodayFirstEntry();
                         if (firstEntryToday) {
                             this.fillMissingDays(lastDate, today, firstEntryToday);
@@ -786,7 +805,6 @@
                     }
                 }
 
-                // 获取最后录入日期
                 getLastEntryDate() {
                     if (!this.userData?.progress) return null;
                     
@@ -802,7 +820,6 @@
                     return new Date(year, month - 1, parseInt(lastDay));
                 }
 
-                // 获取今日第一次录入
                 getTodayFirstEntry() {
                     const today = new Date();
                     const monthKey = getMonthKey(today);
@@ -810,15 +827,14 @@
                     
                     const dayData = this.userData?.progress?.[monthKey]?.[dayKey];
                     if (dayData && dayData.length > 1) {
-                        return dayData[1]; // 第一个实际体重
+                        return dayData[1];
                     }
                     return null;
                 }
 
-                // 填充缺失天数
                 fillMissingDays(startDate, endDate, firstActual) {
                     const start = new Date(startDate);
-                    start.setDate(start.getDate() + 1); // 从缺失的第一天开始
+                    start.setDate(start.getDate() + 1);
                     
                     const days = [];
                     let current = new Date(start);
@@ -829,10 +845,8 @@
 
                     if (days.length === 0) return;
 
-                    // 获取最后一天的目标体重
                     const lastTarget = this.getTargetForDate(startDate);
                     
-                    // 计算每天的目标体重
                     const targets = [];
                     let target = lastTarget;
                     for (let i = 0; i < days.length; i++) {
@@ -840,11 +854,9 @@
                         targets.push(target);
                     }
 
-                    // 计算等差数列的实际体重
                     const startWeight = this.getActualForDate(startDate) || lastTarget;
                     const step = (firstActual - startWeight) / (days.length + 1);
 
-                    // 填充数据
                     days.forEach((date, index) => {
                         const monthKey = getMonthKey(date);
                         const dayKey = getDayKey(date);
@@ -861,7 +873,6 @@
                     });
                 }
 
-                // 获取指定日期的目标体重
                 getTargetForDate(date) {
                     const monthKey = getMonthKey(date);
                     const dayKey = getDayKey(date);
@@ -869,7 +880,6 @@
                     return this.userData?.progress?.[monthKey]?.[dayKey]?.[0] || null;
                 }
 
-                // 获取指定日期的实际体重（平均值）
                 getActualForDate(date) {
                     const monthKey = getMonthKey(date);
                     const dayKey = getDayKey(date);
@@ -877,12 +887,10 @@
                     const dayData = this.userData?.progress?.[monthKey]?.[dayKey];
                     if (!dayData || dayData.length < 2) return null;
                     
-                    // 计算平均值（排除第一个目标体重）
                     const actuals = dayData.slice(1);
                     return actuals.reduce((a, b) => a + b, 0) / actuals.length;
                 }
 
-                // 准备今日录入数据
                 prepareTodayEntries() {
                     const today = new Date();
                     const monthKey = getMonthKey(today);
@@ -896,40 +904,33 @@
                     }
                 }
 
-                // 处理登录
                 async handleLogin(username, token) {
                     if (!username || !token) {
                         this.showError('请输入用户名和Token');
                         return;
                     }
 
-                    // 验证Token
                     const isValid = await this.sync.validateToken(token);
                     if (!isValid) {
                         this.showError('Token无效');
                         return;
                     }
 
-                    // 加载用户数据
                     const userData = await this.sync.loadUserData(username);
                     if (!userData) {
                         this.showError('用户不存在');
                         return;
                     }
 
-                    // 保存Token
                     localStorage.setItem('github_token', token);
                     
-                    // 登录成功
                     this.currentUser = username;
                     this.userData = userData;
                     this.view = 'main';
                     
-                    // 检查并填充数据
                     this.checkAndFillMissingData();
                     this.prepareTodayEntries();
                     
-                    // 保存登录状态
                     localStorage.setItem(APP.STORAGE_KEY, JSON.stringify({
                         username: this.currentUser,
                         data: this.userData
@@ -938,7 +939,6 @@
                     this.render();
                 }
 
-                // 处理注册
                 async handleRegister(username, height, weight, token) {
                     if (!username || !height || !weight || !token) {
                         this.showError('请填写所有字段');
@@ -958,24 +958,20 @@
                         return;
                     }
 
-                    // 验证Token
                     const isValid = await this.sync.validateToken(token);
                     if (!isValid) {
                         this.showError('Token无效');
                         return;
                     }
 
-                    // 检查用户是否已存在
                     const existing = await this.sync.loadUserData(username);
                     if (existing) {
                         this.showError('用户已存在，请直接登录');
                         return;
                     }
 
-                    // 计算目标体重
                     const goalWeight = calculateWeightFromBMI(this.bmiValue, height);
 
-                    // 创建用户数据
                     const today = new Date();
                     const monthKey = getMonthKey(today);
                     const dayKey = getDayKey(today);
@@ -987,22 +983,19 @@
                         goal: goalWeight,
                         progress: {
                             [monthKey]: {
-                                [dayKey]: [weight] // 第一天只有目标体重
+                                [dayKey]: [weight]
                             }
                         }
                     };
 
-                    // 保存到GitHub
                     const saved = await this.sync.saveUserData(username, userData, token);
                     if (!saved) {
                         this.showError('保存用户数据失败');
                         return;
                     }
 
-                    // 保存Token
                     localStorage.setItem('github_token', token);
 
-                    // 注册成功
                     this.currentUser = username;
                     this.userData = userData;
                     this.view = 'main';
@@ -1043,10 +1036,8 @@
                     const monthKey = getMonthKey(today);
                     const dayKey = getDayKey(today);
 
-                    // 获取今天的目标体重
                     let targetWeight;
                     if (!this.userData.progress[monthKey] || !this.userData.progress[monthKey][dayKey]) {
-                        // 今天还没有目标体重，需要计算
                         const yesterday = new Date(today);
                         yesterday.setDate(yesterday.getDate() - 1);
                         const yesterdayTarget = this.getTargetForDate(yesterday);
@@ -1054,14 +1045,12 @@
                         if (yesterdayTarget) {
                             targetWeight = calculateNextTarget(yesterdayTarget);
                         } else {
-                            // 没有昨天数据，使用初始体重
                             targetWeight = this.userData.weight;
                         }
                     } else {
                         targetWeight = this.userData.progress[monthKey][dayKey][0];
                     }
 
-                    // 保存数据
                     if (!this.userData.progress[monthKey]) {
                         this.userData.progress[monthKey] = {};
                     }
@@ -1071,28 +1060,25 @@
                         ...this.todayEntries.map(w => Math.round(w * 100) / 100)
                     ];
 
-                    // 同步到GitHub
                     const token = localStorage.getItem('github_token');
-                    await this.sync.saveUserData(this.currentUser, this.userData, token);
+                    const saved = await this.sync.saveUserData(this.currentUser, this.userData, token);
 
-                    // 更新本地存储
                     localStorage.setItem(APP.STORAGE_KEY, JSON.stringify({
                         username: this.currentUser,
                         data: this.userData
                     }));
 
+                    this.prepareTodayEntries();
                     this.render();
                 }
 
-                // 获取图表数据
                 getChartData() {
                     const today = new Date();
                     const dates = [];
                     
-                    // 根据滑动起始索引获取7天数据
                     for (let i = this.chartStartIndex; i < this.chartStartIndex + 7; i++) {
                         const d = new Date(today);
-                        d.setDate(today.getDate() - 5 + i); // 从5天前开始
+                        d.setDate(today.getDate() - 5 + i);
                         dates.push(d);
                     }
 
@@ -1109,7 +1095,6 @@
                     });
                 }
 
-                // 更新图表
                 updateChart() {
                     if (this.chart) {
                         this.chart.destroy();
@@ -1123,7 +1108,6 @@
                     const actualData = chartData.map(d => d.actual);
                     const targetData = chartData.map(d => d.target);
 
-                    // 计算Y轴范围
                     const allValues = [...targetData.filter(v => v), ...actualData.filter(v => v)];
                     const minWeight = Math.floor((Math.min(50, ...allValues) - 2) / 5) * 5;
                     const maxWeight = Math.ceil((Math.max(100, ...allValues) + 2) / 5) * 5;
@@ -1195,7 +1179,6 @@
                     });
                 }
 
-                // 清除所有数据
                 async clearAllData() {
                     if (!this.currentUser) return;
                     
@@ -1208,7 +1191,6 @@
                     this.render();
                 }
 
-                // 导出数据
                 exportData() {
                     const dataStr = JSON.stringify(this.userData, null, 2);
                     const blob = new Blob([dataStr], { type: 'application/json' });
@@ -1221,7 +1203,6 @@
                     this.showModal = null;
                 }
 
-                // 导入数据
                 importData(file) {
                     const reader = new FileReader();
                     reader.onload = async (e) => {
@@ -1234,7 +1215,6 @@
                             
                             this.userData = data;
                             
-                            // 同步到GitHub
                             const token = localStorage.getItem('github_token');
                             await this.sync.saveUserData(this.currentUser, this.userData, token);
                             
@@ -1274,7 +1254,6 @@
                         setTimeout(() => this.updateChart(), 50);
                     }
 
-                    // 渲染模态框
                     if (this.showModal) {
                         this.renderModal();
                     }
@@ -1309,7 +1288,7 @@
                 }
 
                 renderRegister() {
-                    const goalWeight = calculateWeightFromBMI(this.bmiValue, 170); // 默认身高示例
+                    const goalWeight = calculateWeightFromBMI(this.bmiValue, 170);
                     
                     return `
                         <div>
@@ -1349,7 +1328,6 @@
                         ? (this.todayEntries.reduce((a, b) => a + b, 0) / this.todayEntries.length).toFixed(2)
                         : '--';
 
-                    // 计算当前体重（最近一次实际体重）
                     let currentWeight = this.userData.weight;
                     const months = Object.keys(this.userData.progress || {}).sort().reverse();
                     for (let month of months) {
@@ -1378,13 +1356,12 @@
                                     </div>
                                 </div>
                                 <button id="menu-btn" class="menu-btn">⋯</button>
-                            </div>
-
-                            <div id="dropdown-menu" class="dropdown-menu ${this.showMenu ? 'show' : ''}">
-                                <div class="menu-item" data-action="clear">清除所有数据</div>
-                                <div class="menu-item" data-action="export">导出数据</div>
-                                <div class="menu-item" data-action="import">导入数据</div>
-                                <div class="menu-item danger" data-action="logout">退出登录</div>
+                                <div id="dropdown-menu" class="dropdown-menu ${this.showMenu ? 'show' : ''}">
+                                    <div class="menu-item" data-action="clear">清除所有数据</div>
+                                    <div class="menu-item" data-action="export">导出数据</div>
+                                    <div class="menu-item" data-action="import">导入数据</div>
+                                    <div class="menu-item danger" data-action="logout">退出登录</div>
+                                </div>
                             </div>
 
                             <div class="target-card">
@@ -1542,7 +1519,6 @@
                 }
 
                 attachAuthEvents() {
-                    // 切换登录/注册模式
                     document.querySelectorAll('.auth-tab').forEach(tab => {
                         tab.addEventListener('click', (e) => {
                             this.authMode = e.target.dataset.authMode;
@@ -1557,16 +1533,21 @@
                             this.handleLogin(username, token);
                         });
                     } else {
-                        // BMI滑块事件
                         const slider = document.getElementById('bmi-slider');
                         if (slider) {
                             slider.addEventListener('input', (e) => {
                                 this.bmiValue = parseFloat(e.target.value);
+                                const height = parseFloat(document.getElementById('reg-height').value) || 170;
                                 document.getElementById('target-weight-display').textContent = 
-                                    calculateWeightFromBMI(this.bmiValue, 
-                                        parseFloat(document.getElementById('reg-height').value) || 170).toFixed(1) + ' kg';
+                                    calculateWeightFromBMI(this.bmiValue, height).toFixed(1) + ' kg';
                             });
                         }
+
+                        document.getElementById('reg-height')?.addEventListener('input', () => {
+                            const height = parseFloat(document.getElementById('reg-height').value) || 170;
+                            document.getElementById('target-weight-display').textContent = 
+                                calculateWeightFromBMI(this.bmiValue, height).toFixed(1) + ' kg';
+                        });
 
                         document.getElementById('register-btn')?.addEventListener('click', () => {
                             const username = document.getElementById('reg-username').value;
@@ -1579,13 +1560,12 @@
                 }
 
                 attachMainEvents() {
-                    // 菜单按钮
-                    document.getElementById('menu-btn')?.addEventListener('click', () => {
+                    document.getElementById('menu-btn')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
                         this.showMenu = !this.showMenu;
                         this.render();
                     });
 
-                    // 点击其他地方关闭菜单
                     document.addEventListener('click', (e) => {
                         if (!e.target.closest('#menu-btn') && !e.target.closest('.dropdown-menu')) {
                             this.showMenu = false;
@@ -1593,7 +1573,6 @@
                         }
                     });
 
-                    // 菜单项
                     document.querySelectorAll('[data-action]').forEach(item => {
                         item.addEventListener('click', (e) => {
                             const action = e.target.dataset.action;
@@ -1619,7 +1598,6 @@
                         });
                     });
 
-                    // 添加体重
                     const addBtn = document.getElementById('add-weight-btn');
                     const weightInput = document.getElementById('weight-input');
 
@@ -1635,7 +1613,6 @@
                         });
                     }
 
-                    // 删除录入
                     document.querySelectorAll('.remove-entry').forEach(el => {
                         el.addEventListener('click', (e) => {
                             const index = e.target.dataset.index;
@@ -1645,12 +1622,10 @@
                         });
                     });
 
-                    // 保存
                     document.getElementById('save-today-btn')?.addEventListener('click', () => {
                         this.saveTodayWeight();
                     });
 
-                    // 图表导航
                     document.getElementById('chart-prev')?.addEventListener('click', () => {
                         if (this.chartStartIndex > 0) {
                             this.chartStartIndex--;
@@ -1665,7 +1640,6 @@
                 }
             }
 
-            // 启动应用
             window.addEventListener('DOMContentLoaded', () => {
                 new WeightApp();
             });
