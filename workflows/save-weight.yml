@@ -5,13 +5,17 @@ on:
     types: [save-weight]
   workflow_dispatch:
     inputs:
+      username:
+        description: 'Username'
+        required: true
+        type: string
       data:
-        description: 'Weight data JSON'
+        description: 'User data JSON'
         required: true
         type: string
 
 jobs:
-  save-data:
+  save-user-data:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -22,17 +26,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 2  # 需要获取历史以检查文件变化
+          fetch-depth: 2
       
       - name: Parse and validate data
         id: parse
         run: |
           # 获取输入数据
           if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
-            DATA='${{ toJSON(github.event.client_payload) }}'
+            USERNAME='${{ toJSON(github.event.client_payload.username) }}'
+            DATA='${{ toJSON(github.event.client_payload.data) }}'
           else
+            USERNAME='${{ github.event.inputs.username }}'
             DATA='${{ github.event.inputs.data }}'
           fi
+          
+          # 移除引号
+          USERNAME=$(echo "$USERNAME" | sed 's/^"//;s/"$//')
+          
+          echo "USERNAME=$USERNAME" >> $GITHUB_ENV
           
           # 保存到临时文件
           echo "$DATA" > /tmp/new-data.json
@@ -44,48 +55,46 @@ jobs:
           fi
           
           echo "✅ 数据验证通过"
+          echo "👤 用户名: $USERNAME"
       
-      - name: Merge with existing data
+      - name: Create or update user data
         run: |
-          # 创建数据目录
-          mkdir -p data
+          # 创建用户数据目录
+          mkdir -p docs/data/users
           
-          # 如果已存在数据文件，合并数据
-          if [ -f data/weight-data.json ]; then
-            echo "📂 发现现有数据，正在合并..."
-            
-            # 合并新旧数据（新数据覆盖旧数据）
-            jq -s '.[0] * .[1]' data/weight-data.json /tmp/new-data.json > /tmp/merged.json
-            
-            # 检查合并是否成功
-            if [ $? -eq 0 ] && [ -s /tmp/merged.json ]; then
-              mv /tmp/merged.json data/weight-data.json
-              echo "✅ 数据合并成功"
-            else
-              echo "⚠️ 合并失败，使用新数据"
-              cp /tmp/new-data.json data/weight-data.json
-            fi
-          else
-            echo "📂 创建新数据文件"
-            cp /tmp/new-data.json data/weight-data.json
+          USER_FILE="docs/data/users/${USERNAME}.json"
+          
+          # 如果已存在用户数据，可以在这里做合并（如果需要）
+          if [ -f "$USER_FILE" ]; then
+            echo "📂 发现现有用户数据，正在更新..."
+            # 这里直接用新数据覆盖，因为我们是完整保存
           fi
           
-          # 格式化JSON以便阅读
-          jq '.' data/weight-data.json > /tmp/formatted.json
-          mv /tmp/formatted.json data/weight-data.json
+          # 保存用户数据
+          cp /tmp/new-data.json "$USER_FILE"
           
-          echo "✅ 数据处理完成"
+          # 格式化JSON以便阅读
+          jq '.' "$USER_FILE" > /tmp/formatted.json
+          mv /tmp/formatted.json "$USER_FILE"
+          
+          echo "✅ 用户数据已保存: $USER_FILE"
+          
+          # 显示数据统计
+          echo "📊 数据统计:" >> $GITHUB_STEP_SUMMARY
+          echo "- 用户名: ${USERNAME}" >> $GITHUB_STEP_SUMMARY
+          echo "- 身高: $(jq -r '.height' "$USER_FILE") cm" >> $GITHUB_STEP_SUMMARY
+          echo "- 初始体重: $(jq -r '.weight' "$USER_FILE") kg" >> $GITHUB_STEP_SUMMARY
+          echo "- 目标体重: $(jq -r '.goal' "$USER_FILE") kg" >> $GITHUB_STEP_SUMMARY
+          echo "- 记录月份数: $(jq '.progress | length' "$USER_FILE")" >> $GITHUB_STEP_SUMMARY
       
       - name: Check for changes
         id: git-check
         run: |
-          # 检查是否有文件变更
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           
-          git add data/weight-data.json
+          git add docs/data/users/
           
-          # 检查是否有变更
           if git diff --staged --quiet; then
             echo "changed=false" >> $GITHUB_OUTPUT
             echo "ℹ️ 数据无变化，跳过提交"
@@ -97,32 +106,14 @@ jobs:
       - name: Commit and push changes
         if: steps.git-check.outputs.changed == 'true'
         run: |
-          # 提交变更
-          git commit -m "📊 更新体重数据 - $(date +'%Y-%m-%d %H:%M:%S')"
-          
-          # 推送到仓库
+          git commit -m "📊 更新用户数据 - ${USERNAME} - $(date +'%Y-%m-%d %H:%M:%S')"
           git push
-          
           echo "✅ 数据已成功提交到仓库"
       
       - name: Create timestamp file for Pages
         if: steps.git-check.outputs.changed == 'true'
         run: |
-          # 创建时间戳文件，用于触发Pages重建
-          mkdir -p docs
-          echo "{\"updated\": \"$(date -Iseconds)\"}" > docs/last-update.json
-          
+          echo "{\"updated\": \"$(date -Iseconds)\", \"user\": \"${USERNAME}\"}" > docs/last-update.json
           git add docs/last-update.json
           git commit -m "🔄 更新部署时间戳" || true
           git push || true
-      
-      - name: Summary
-        run: |
-          echo "## 📊 体重数据更新摘要" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **更新时间**: $(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
-          echo "- **数据文件**: \`data/weight-data.json\`" >> $GITHUB_STEP_SUMMARY
-          if [ -f data/weight-data.json ]; then
-            echo "- **文件大小**: $(wc -c < data/weight-data.json) 字节" >> $GITHUB_STEP_SUMMARY
-            echo "- **包含记录**: $(jq 'length' data/weight-data.json) 条" >> $GITHUB_STEP_SUMMARY
-          fi
