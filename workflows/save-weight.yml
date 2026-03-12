@@ -1,0 +1,128 @@
+name: Save Weight Data
+
+on:
+  repository_dispatch:
+    types: [save-weight]
+  workflow_dispatch:
+    inputs:
+      data:
+        description: 'Weight data JSON'
+        required: true
+        type: string
+
+jobs:
+  save-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2  # 需要获取历史以检查文件变化
+      
+      - name: Parse and validate data
+        id: parse
+        run: |
+          # 获取输入数据
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            DATA='${{ toJSON(github.event.client_payload) }}'
+          else
+            DATA='${{ github.event.inputs.data }}'
+          fi
+          
+          # 保存到临时文件
+          echo "$DATA" > /tmp/new-data.json
+          
+          # 验证数据格式
+          if ! jq empty /tmp/new-data.json 2>/dev/null; then
+            echo "❌ 无效的JSON数据"
+            exit 1
+          fi
+          
+          echo "✅ 数据验证通过"
+      
+      - name: Merge with existing data
+        run: |
+          # 创建数据目录
+          mkdir -p data
+          
+          # 如果已存在数据文件，合并数据
+          if [ -f data/weight-data.json ]; then
+            echo "📂 发现现有数据，正在合并..."
+            
+            # 合并新旧数据（新数据覆盖旧数据）
+            jq -s '.[0] * .[1]' data/weight-data.json /tmp/new-data.json > /tmp/merged.json
+            
+            # 检查合并是否成功
+            if [ $? -eq 0 ] && [ -s /tmp/merged.json ]; then
+              mv /tmp/merged.json data/weight-data.json
+              echo "✅ 数据合并成功"
+            else
+              echo "⚠️ 合并失败，使用新数据"
+              cp /tmp/new-data.json data/weight-data.json
+            fi
+          else
+            echo "📂 创建新数据文件"
+            cp /tmp/new-data.json data/weight-data.json
+          fi
+          
+          # 格式化JSON以便阅读
+          jq '.' data/weight-data.json > /tmp/formatted.json
+          mv /tmp/formatted.json data/weight-data.json
+          
+          echo "✅ 数据处理完成"
+      
+      - name: Check for changes
+        id: git-check
+        run: |
+          # 检查是否有文件变更
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          git add data/weight-data.json
+          
+          # 检查是否有变更
+          if git diff --staged --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ 数据无变化，跳过提交"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "📝 检测到数据变化，准备提交"
+          fi
+      
+      - name: Commit and push changes
+        if: steps.git-check.outputs.changed == 'true'
+        run: |
+          # 提交变更
+          git commit -m "📊 更新体重数据 - $(date +'%Y-%m-%d %H:%M:%S')"
+          
+          # 推送到仓库
+          git push
+          
+          echo "✅ 数据已成功提交到仓库"
+      
+      - name: Create timestamp file for Pages
+        if: steps.git-check.outputs.changed == 'true'
+        run: |
+          # 创建时间戳文件，用于触发Pages重建
+          mkdir -p docs
+          echo "{\"updated\": \"$(date -Iseconds)\"}" > docs/last-update.json
+          
+          git add docs/last-update.json
+          git commit -m "🔄 更新部署时间戳" || true
+          git push || true
+      
+      - name: Summary
+        run: |
+          echo "## 📊 体重数据更新摘要" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **更新时间**: $(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
+          echo "- **数据文件**: \`data/weight-data.json\`" >> $GITHUB_STEP_SUMMARY
+          if [ -f data/weight-data.json ]; then
+            echo "- **文件大小**: $(wc -c < data/weight-data.json) 字节" >> $GITHUB_STEP_SUMMARY
+            echo "- **包含记录**: $(jq 'length' data/weight-data.json) 条" >> $GITHUB_STEP_SUMMARY
+          fi
