@@ -920,6 +920,11 @@
                 }
 
                 render() {
+                    // 方案A：在渲染前检查数据
+                    if (this.state.view === 'main' && !this.state.userData) {
+                        this.state.view = 'setup';
+                    }
+                    
                     document.getElementById('app').innerHTML = this.state.view === 'setup' ? this.renderSetup() : this.renderMain();
                     this.attachEvents();
                     if (this.state.showModal) this.renderModal();
@@ -963,6 +968,11 @@
                 }
 
                 renderMain() {
+                    // 方案A：在渲染Main前确保有数据
+                    if (!this.state.userData) {
+                        return this.renderSetup();
+                    }
+
                     const today = new Date();
                     const target = this.getTargetForDate(today) || this.state.userData.weight;
                     
@@ -1049,7 +1059,6 @@
                                         const redHeight = actual !== null && actual > target ? 
                                             actual - target : 0;
                                         
-                                        const totalHeight = actual !== null ? actual : 0;
                                         const greenPercent = ((greenHeight - yRange.min) / range) * 180;
                                         const redPercent = (redHeight / range) * 180;
                                         
