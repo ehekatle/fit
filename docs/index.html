@@ -3,392 +3,489 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>体重日记 · 动态渐变色卡片</title>
+    <title>体重日记 · 科幻版</title>
     
-    <!-- Pico CSS - 核心框架 -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <!-- Bulma CSS 核心框架 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     
-    <!-- Chart.js - 图表库 -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
+    <!-- 自定义科幻主题 -->
     <style>
-        /* 自定义变量 */
+        /* ===== 科幻主题变量 ===== */
         :root {
-            --card-radius: 2rem;
-            --green-start: #10b981;
-            --green-end: #059669;
-            --gray-start: #f3f4f6;
-            --gray-end: #e5e7eb;
+            --neon-cyan: #00ffff;
+            --neon-blue: #0066ff;
+            --neon-purple: #9900ff;
+            --neon-pink: #ff00aa;
+            --neon-green: #00ffaa;
+            --dark-bg: #0a0f1e;
+            --glass-bg: rgba(10, 20, 40, 0.7);
+            --glass-border: rgba(0, 255, 255, 0.2);
+            --glow-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
         }
         
-        /* 移动端容器 */
-        .mobile-container {
+        /* 全局科幻背景 */
+        body {
+            background: var(--dark-bg);
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 255, 255, 0.05) 0%, transparent 30%),
+                radial-gradient(circle at 90% 50%, rgba(255, 0, 170, 0.05) 0%, transparent 40%),
+                linear-gradient(135deg, #0a0f1e 0%, #1a1f2e 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        
+        /* 移动端容器 - 带发光边框 */
+        .cyber-container {
             max-width: 400px;
             margin: 0 auto;
             padding: 1rem;
-        }
-        
-        /* ===== 动态渐变色卡片 ===== */
-        .dynamic-goal-card {
             position: relative;
-            border-radius: var(--card-radius);
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-            overflow: hidden;
-            min-height: 160px;
         }
         
-        /* 左侧绿色进度层 */
-        .progress-layer {
+        /* 玻璃态卡片 */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* 卡片发光边框动画 */
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, 
+                var(--neon-cyan), 
+                var(--neon-blue), 
+                var(--neon-purple), 
+                var(--neon-pink));
+            border-radius: 2rem;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .glass-card:hover::before {
+            opacity: 0.5;
+        }
+        
+        /* 霓虹文字 */
+        .neon-text {
+            color: white;
+            text-shadow: 
+                0 0 5px var(--neon-cyan),
+                0 0 10px var(--neon-cyan),
+                0 0 20px var(--neon-blue);
+        }
+        
+        .neon-cyan {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+        
+        .neon-pink {
+            color: var(--neon-pink);
+            text-shadow: 0 0 10px rgba(255, 0, 170, 0.5);
+        }
+        
+        /* ===== 动态分色卡片 ===== */
+        .cyber-goal-card {
+            position: relative;
+            border-radius: 2rem;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            overflow: hidden;
+            min-height: 180px;
+            background: rgba(0, 20, 40, 0.6);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+        }
+        
+        /* 左侧霓虹进度层 - 使用科幻渐变 */
+        .cyber-progress-layer {
             position: absolute;
             top: 0;
             left: 0;
-            width: 0%; /* 由JS动态控制 */
+            width: 0%;
             height: 100%;
-            background: linear-gradient(145deg, var(--green-start), var(--green-end));
+            background: linear-gradient(145deg, 
+                rgba(0, 255, 255, 0.9),
+                rgba(0, 102, 255, 0.9));
+            box-shadow: 
+                0 0 30px rgba(0, 255, 255, 0.5),
+                inset 0 0 30px rgba(255, 255, 255, 0.5);
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 1;
         }
         
-        /* 右侧浅灰色背景 */
-        .gray-background {
+        /* 右侧深色背景 */
+        .cyber-bg {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(145deg, var(--gray-start), var(--gray-end));
+            background: linear-gradient(145deg, 
+                rgba(20, 30, 50, 0.9),
+                rgba(10, 15, 30, 0.9));
             z-index: 0;
         }
         
         /* 卡片内容 */
-        .card-content {
+        .cyber-card-content {
             position: relative;
             z-index: 2;
             color: white;
-            mix-blend-mode: difference;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
             height: 100%;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
         }
         
-        /* 内容顶部 */
-        .content-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
-        
-        .goal-label {
-            opacity: 0.9;
-            font-size: 0.95rem;
-        }
-        
-        .goal-value {
-            font-size: 2.2rem;
-            font-weight: 300;
-            line-height: 1;
-        }
-        
-        .goal-unit {
-            font-size: 0.9rem;
-            opacity: 0.8;
-            display: block;
-            margin-top: -0.25rem;
-        }
-        
-        /* 内容底部 */
-        .content-bottom {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            opacity: 0.7;
-            margin-top: 1rem;
-        }
-        
-        /* 统计卡片 */
-        .stats-card {
-            background: white;
-            border-radius: var(--card-radius);
-            padding: 1.5rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-            border: 1px solid rgba(0,0,0,0.05);
-            margin: 1rem 0;
-        }
-        
-        /* 大号输入框 */
-        .weight-input {
-            font-size: 3rem;
-            text-align: center;
-            border: none;
-            background: #f8fafc;
-            border-radius: var(--card-radius);
-            padding: 1rem;
+        /* 扫描线效果 */
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            font-weight: 300;
-            outline: none;
-            transition: all 0.2s;
+            height: 100%;
+            background: linear-gradient(
+                transparent 50%,
+                rgba(0, 255, 255, 0.03) 50%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 3;
+            opacity: 0.3;
         }
         
-        .weight-input:focus {
-            background: #f1f5f9;
-            box-shadow: 0 0 0 2px rgba(16,185,129,0.1);
+        /* 数据网格 */
+        .data-grid {
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
         }
         
-        /* 图表卡片 */
-        .chart-card {
-            background: white;
-            border-radius: var(--card-radius);
-            padding: 1.5rem 1rem;
-            margin: 1.5rem 0;
-            border: 1px solid rgba(0,0,0,0.05);
+        /* 霓虹按钮 */
+        .cyber-button {
+            background: transparent;
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            padding: 0.75rem 1.5rem;
+            border-radius: 2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
         }
         
-        /* 头像 */
-        .avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 24px;
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            font-weight: 500;
+        .cyber-button:hover {
+            background: var(--neon-cyan);
+            color: var(--dark-bg);
+            box-shadow: 0 0 30px var(--neon-cyan);
+            transform: translateY(-2px);
         }
         
-        /* 菜单 */
-        .dropdown {
+        .cyber-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .cyber-button:hover::before {
+            left: 100%;
+        }
+        
+        /* 霓虹输入框 */
+        .cyber-input {
+            background: rgba(0, 20, 40, 0.8) !important;
+            border: 2px solid var(--neon-cyan) !important;
+            color: white !important;
+            font-size: 2.5rem !important;
+            text-align: center;
+            border-radius: 2rem !important;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2) !important;
+            transition: all 0.3s ease;
+        }
+        
+        .cyber-input:focus {
+            box-shadow: 0 0 30px var(--neon-cyan) !important;
+            border-color: var(--neon-pink) !important;
+        }
+        
+        /* 进度条 */
+        .cyber-progress {
+            background: rgba(255,255,255,0.1);
+            border-radius: 1rem;
+            height: 8px;
+            overflow: hidden;
             position: relative;
         }
         
-        .dropdown-trigger {
-            background: none;
-            border: none;
-            font-size: 1.8rem;
-            line-height: 1;
-            padding: 0.5rem;
-            cursor: pointer;
-            color: #666;
-        }
-        
-        .dropdown-menu {
-            position: absolute;
-            right: 0;
-            top: 100%;
-            background: white;
+        .cyber-progress-fill {
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-blue));
+            height: 100%;
             border-radius: 1rem;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-            min-width: 160px;
-            display: none;
-            z-index: 100;
-            overflow: hidden;
+            box-shadow: 0 0 20px var(--neon-cyan);
+            position: relative;
         }
         
-        .dropdown-menu.show {
-            display: block;
+        .cyber-progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, 
+                transparent,
+                rgba(255,255,255,0.3),
+                transparent);
+            animation: scan 2s linear infinite;
         }
         
-        .dropdown-item {
-            padding: 0.75rem 1rem;
-            cursor: pointer;
-            transition: background 0.2s;
-            font-size: 0.9rem;
+        @keyframes scan {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
         }
         
-        .dropdown-item:hover {
-            background: #f8fafc;
-        }
-        
-        .dropdown-item.danger {
-            color: #dc2626;
-        }
-        
-        /* 模态框 */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.3);
-            backdrop-filter: blur(4px);
+        /* 头像 - 全息投影效果 */
+        .hologram-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+            display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
-        }
-        
-        .modal.show {
-            display: flex;
-        }
-        
-        .modal-content {
-            background: white;
-            border-radius: 2rem;
-            padding: 2rem;
-            max-width: 300px;
-            width: 90%;
-            text-align: center;
-        }
-        
-        .modal-actions {
-            display: flex;
-            gap: 0.75rem;
-            margin-top: 1.5rem;
-        }
-        
-        .modal-actions button {
-            flex: 1;
-            padding: 0.75rem;
-            border: none;
-            border-radius: 2rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .btn-secondary {
-            background: #f1f5f9;
-            color: #333;
-        }
-        
-        .btn-danger {
-            background: #dc2626;
             color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 0 20px var(--neon-cyan);
+            position: relative;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        
+        /* 菜单 - 科幻风格 */
+        .cyber-dropdown {
+            background: rgba(10, 20, 40, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--neon-cyan);
+            border-radius: 1rem;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+        }
+        
+        .cyber-dropdown-item {
+            color: white;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s;
+        }
+        
+        .cyber-dropdown-item:hover {
+            background: rgba(0, 255, 255, 0.2);
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px var(--neon-cyan);
+        }
+        
+        .cyber-dropdown-item.danger:hover {
+            background: rgba(255, 0, 170, 0.2);
+            color: var(--neon-pink);
+        }
+        
+        /* 脉冲动画 */
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+        
+        .pulse {
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        /* 图表容器 - 全息效果 */
+        .hologram-chart {
+            background: rgba(10, 20, 40, 0.6);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 2rem;
+            padding: 1.5rem;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+            position: relative;
         }
         
         /* 工具类 */
-        .text-muted { color: #64748b; font-size: 0.85rem; }
-        .flex { display: flex; align-items: center; }
-        .flex-between { display: flex; justify-content: space-between; align-items: center; }
-        .gap-2 { gap: 0.75rem; }
-        .mt-2 { margin-top: 0.5rem; }
-        .mb-2 { margin-bottom: 0.5rem; }
+        .glow-text { text-shadow: 0 0 10px currentColor; }
+        .border-glow { box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); }
     </style>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-    <div class="mobile-container">
+    <div class="cyber-container">
         <!-- ===== 首次设置页面 ===== -->
         <div id="setup-page">
-            <article style="border-radius: 2rem; padding: 2rem;">
-                <hgroup class="text-center">
-                    <h1 style="font-size: 2.5rem; margin-bottom: 0;">⚖️</h1>
-                    <h2 style="font-size: 1.5rem; margin: 0.5rem 0 0.25rem;">体重日记</h2>
-                    <p class="text-muted" style="margin-bottom: 2rem;">首次使用，请设置个人信息</p>
-                </hgroup>
+            <div class="glass-card p-5">
+                <div class="has-text-centered mb-5">
+                    <span class="is-size-1 neon-cyan pulse">⚡</span>
+                    <h2 class="title is-3 neon-text">体重日记</h2>
+                    <p class="subtitle is-6 has-text-grey-light">NEURAL INTERFACE v1.0</p>
+                </div>
                 
                 <!-- 姓名 -->
-                <div class="mb-2">
-                    <label for="name">姓名</label>
-                    <input type="text" id="name" placeholder="例如：张三" value="张三" required>
+                <div class="field">
+                    <label class="label has-text-grey-light">姓名</label>
+                    <div class="control">
+                        <input class="input cyber-input" type="text" id="name" placeholder="输入姓名" value="张三" style="font-size: 1rem !important;">
+                    </div>
                 </div>
                 
                 <!-- 身高 -->
-                <div class="mb-2">
-                    <label for="height">身高 (cm)</label>
-                    <input type="number" id="height" min="100" max="250" step="1" value="172">
+                <div class="field">
+                    <label class="label has-text-grey-light">身高 (cm)</label>
+                    <div class="control">
+                        <input class="input cyber-input" type="number" id="height" min="100" max="250" step="1" value="172" style="font-size: 1rem !important;">
+                    </div>
                 </div>
                 
                 <!-- 当前体重 -->
-                <div class="mb-2">
-                    <label for="current-weight">当前体重 (kg)</label>
-                    <input type="number" id="current-weight" min="30" max="200" step="0.1" value="87.6">
+                <div class="field">
+                    <label class="label has-text-grey-light">当前体重 (kg)</label>
+                    <div class="control">
+                        <input class="input cyber-input" type="number" id="current-weight" min="30" max="200" step="0.1" value="87.6" style="font-size: 1rem !important;">
+                    </div>
                 </div>
                 
                 <!-- BMI滑块 -->
-                <div style="margin: 2rem 0;">
-                    <div class="flex-between">
-                        <label style="margin-bottom: 0;">目标BMI</label>
-                        <span style="font-size: 1.5rem; font-weight: 300; color: #10b981;" id="bmi-value">22.0</span>
+                <div class="field">
+                    <label class="label has-text-grey-light">目标BMI</label>
+                    <div class="is-flex is-justify-content-space-between mb-2">
+                        <span class="has-text-grey-light">18.5</span>
+                        <span class="neon-cyan" id="bmi-value">22.0</span>
+                        <span class="has-text-grey-light">28.0</span>
                     </div>
-                    
-                    <input type="range" id="bmi-slider" min="18.5" max="28" value="22" step="0.1" style="width: 100%; margin: 0.5rem 0;">
+                    <input type="range" id="bmi-slider" min="18.5" max="28" value="22" step="0.1" style="width: 100%; accent-color: #00ffff;">
                     
                     <!-- BMI区间标签 -->
-                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b;">
-                        <span>偏瘦</span>
-                        <span>正常</span>
-                        <span>偏胖</span>
-                        <span>肥胖</span>
+                    <div class="is-flex is-justify-content-space-between mt-2">
+                        <span style="color: #00ffff;">偏瘦</span>
+                        <span style="color: #00ffaa;">正常</span>
+                        <span style="color: #ffaa00;">偏胖</span>
+                        <span style="color: #ff00aa;">肥胖</span>
                     </div>
                 </div>
                 
-                <!-- 目标体重预览卡片 -->
-                <div style="background: #f0fdf4; border-radius: 1.5rem; padding: 1.25rem; margin: 1.5rem 0;">
-                    <p class="text-muted" style="margin: 0 0 0.25rem;">您的目标体重</p>
-                    <p style="margin: 0; font-size: 2rem; font-weight: 300; color: #10b981;" id="target-weight">65.08 kg</p>
+                <!-- 目标体重预览 -->
+                <div class="glass-card p-4 my-4 has-text-centered">
+                    <p class="has-text-grey-light mb-2">目标体重</p>
+                    <p class="title is-2 neon-cyan" id="target-weight">65.08 kg</p>
                 </div>
                 
                 <!-- 导入数据按钮 -->
-                <button type="button" id="import-btn" class="outline" style="margin-bottom: 1rem; width: 100%;">
-                    📂 导入已有数据
+                <button class="cyber-button is-fullwidth mb-3" id="import-btn">
+                    <span>📡 导入数据</span>
                 </button>
                 <input type="file" id="import-file" accept=".json" style="display: none;">
                 
                 <!-- 开始记录按钮 -->
-                <button type="button" id="start-btn" style="width: 100%; background: #10b981;">开始记录</button>
-            </article>
+                <button class="cyber-button is-fullwidth" id="start-btn">
+                    <span>🚀 启动系统</span>
+                </button>
+            </div>
         </div>
         
         <!-- ===== 主界面页面 ===== -->
         <div id="main-page" style="display: none;">
             <!-- 顶部用户栏 -->
-            <div class="flex-between" style="margin: 0.5rem 0 1rem;">
-                <div class="flex gap-2">
-                    <div class="avatar" id="avatar">张</div>
-                    <div>
-                        <div style="font-weight: 500;" id="display-name">张三</div>
-                        <div class="text-muted" style="font-size: 0.8rem;" id="display-stats">172cm · 目标 65.1kg</div>
+            <nav class="level mb-4">
+                <div class="level-left">
+                    <div class="level-item">
+                        <div class="hologram-avatar mr-3" id="avatar">张</div>
+                        <div>
+                            <div class="has-text-white" id="display-name">张三</div>
+                            <div class="has-text-grey-light is-size-7" id="display-stats">172cm · 目标 65.1kg</div>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- 菜单 -->
-                <div class="dropdown">
-                    <button class="dropdown-trigger" id="menu-toggle">⋯</button>
-                    <div class="dropdown-menu" id="dropdown-menu">
-                        <div class="dropdown-item" id="export-data">📤 导出数据</div>
-                        <div class="dropdown-item danger" id="clear-data">🗑️ 清除数据</div>
+                <div class="level-right">
+                    <div class="dropdown" id="menu-dropdown">
+                        <div class="dropdown-trigger">
+                            <button class="cyber-button is-small" id="menu-toggle" style="padding: 0.5rem 1rem;">⋯</button>
+                        </div>
+                        <div class="dropdown-menu" id="dropdown-menu" style="display: none;">
+                            <div class="dropdown-content cyber-dropdown">
+                                <a class="dropdown-item cyber-dropdown-item" id="export-data">
+                                    📤 导出数据
+                                </a>
+                                <a class="dropdown-item cyber-dropdown-item danger" id="clear-data">
+                                    🗑️ 清除数据
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </nav>
             
-            <!-- ===== 动态渐变色目标卡片 ===== -->
-            <div class="dynamic-goal-card" id="dynamic-goal-card">
-                <!-- 右侧浅灰色背景（始终存在） -->
-                <div class="gray-background"></div>
+            <!-- ===== 科幻动态分色目标卡片 ===== -->
+            <div class="cyber-goal-card" id="dynamic-goal-card">
+                <!-- 扫描线效果 -->
+                <div class="scan-line"></div>
                 
-                <!-- 左侧绿色进度层（宽度动态变化） -->
-                <div class="progress-layer" id="progress-layer" style="width: 45%;"></div>
+                <!-- 右侧深色背景 -->
+                <div class="cyber-bg"></div>
+                
+                <!-- 左侧霓虹进度层 -->
+                <div class="cyber-progress-layer" id="progress-layer" style="width: 45%;"></div>
                 
                 <!-- 卡片内容 -->
-                <div class="card-content">
+                <div class="cyber-card-content">
                     <div>
-                        <div class="content-top">
-                            <span class="goal-label">今日目标</span>
-                            <span class="goal-value" id="today-goal">86.40</span>
+                        <div class="is-flex is-justify-content-space-between is-align-items-center">
+                            <span class="has-text-grey-light">今日目标</span>
+                            <span class="title is-1 neon-text" id="today-goal" style="margin: 0;">86.40</span>
                         </div>
-                        <span class="goal-unit">kg</span>
+                        <span class="has-text-grey-light">kg</span>
                     </div>
                     
-                    <div class="content-bottom">
-                        <span id="start-weight">87.6 kg</span>
-                        <span id="target-weight-goal">65.1 kg</span>
+                    <div class="is-flex is-justify-content-space-between mt-4">
+                        <span class="has-text-grey-light" id="start-weight">87.6 kg</span>
+                        <span class="has-text-grey-light" id="target-weight-goal">65.1 kg</span>
                     </div>
                 </div>
             </div>
             
             <!-- 录入卡片 -->
-            <div class="stats-card">
-                <input type="number" step="any" id="weight-input" class="weight-input" placeholder="0.0" autofocus>
-                <p class="text-muted text-center mt-2" id="today-count"></p>
+            <div class="glass-card p-5 my-4">
+                <input type="number" step="any" id="weight-input" class="cyber-input" placeholder="0.0" autofocus>
+                <p class="has-text-grey-light has-text-centered mt-3" id="today-count"></p>
             </div>
             
             <!-- 图表卡片 -->
-            <div class="chart-card">
-                <p class="text-muted" style="margin: 0 0 1rem 0.5rem; font-size: 0.85rem;">📊 最近7天趋势</p>
+            <div class="hologram-chart">
+                <p class="has-text-grey-light mb-3" style="letter-spacing: 2px;">
+                    <span class="neon-cyan">⏣</span> 神经接口数据流
+                </p>
                 <div style="height: 260px;">
                     <canvas id="weight-chart"></canvas>
                 </div>
@@ -397,13 +494,16 @@
         
         <!-- ===== 清除确认模态框 ===== -->
         <div class="modal" id="clear-modal">
+            <div class="modal-background"></div>
             <div class="modal-content">
-                <h3 style="font-size: 1.3rem; margin: 0 0 0.5rem;">确认清除？</h3>
-                <p class="text-muted" style="margin: 0 0 1.5rem;">所有本地数据将被永久删除</p>
-                
-                <div class="modal-actions">
-                    <button class="btn-secondary" id="modal-cancel">取消</button>
-                    <button class="btn-danger" id="modal-confirm">清除</button>
+                <div class="glass-card p-5 has-text-centered">
+                    <h3 class="title is-4 neon-text mb-4">⚠️ 确认清除</h3>
+                    <p class="has-text-grey-light mb-5">所有本地数据将被永久删除</p>
+                    
+                    <div class="is-flex is-justify-content-center gap-3">
+                        <button class="cyber-button" id="modal-cancel" style="margin-right: 0.5rem;">取消</button>
+                        <button class="cyber-button" id="modal-confirm" style="border-color: var(--neon-pink); color: var(--neon-pink);">清除</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -661,7 +761,7 @@
                 if (today) {
                     todayGoal.textContent = today.goal.toFixed(2);
                     
-                    // 进度计算 (起始体重 -> 目标体重)
+                    // 进度计算
                     const current = today.avg !== null ? today.avg : appData.weight;
                     const start = appData.weight;
                     const target = appData.goal;
@@ -672,7 +772,7 @@
                         progress = Math.min(100, Math.max(0, progress));
                     }
                     
-                    // ===== 关键代码：更新左侧绿色进度层宽度 =====
+                    // 更新左侧霓虹进度层宽度
                     if (progressLayer) {
                         progressLayer.style.width = progress + '%';
                     }
@@ -732,9 +832,9 @@
                     values.push(avg);
                     
                     if (avg !== null && goal !== null) {
-                        colors.push(avg <= goal ? '#10b981' : '#ef4444');
+                        colors.push(avg <= goal ? '#00ffaa' : '#ff00aa');
                     } else {
-                        colors.push('#e5e7eb');
+                        colors.push('#333333');
                     }
                 }
                 
@@ -767,13 +867,11 @@
                         plugins: {
                             legend: { display: false },
                             tooltip: {
-                                callbacks: {
-                                    label: (context) => {
-                                        const val = context.raw;
-                                        if (val === null) return '暂无记录';
-                                        return `${val.toFixed(2)} kg`;
-                                    }
-                                }
+                                backgroundColor: 'rgba(0,20,40,0.9)',
+                                titleColor: '#00ffff',
+                                bodyColor: 'white',
+                                borderColor: '#00ffff',
+                                borderWidth: 1
                             }
                         },
                         scales: {
@@ -781,23 +879,17 @@
                                 min: base - 2,
                                 max: base + 1,
                                 grid: {
-                                    color: '#f1f5f9',
-                                    drawTicks: false
+                                    color: 'rgba(0,255,255,0.1)',
                                 },
-                                border: { display: false },
                                 ticks: {
-                                    stepSize: 0.5,
-                                    font: { size: 10 }
+                                    color: '#00ffff',
+                                    stepSize: 0.5
                                 }
                             },
                             x: {
                                 grid: { display: false },
-                                border: { display: false },
-                                ticks: { font: { size: 11 } }
+                                ticks: { color: 'white' }
                             }
-                        },
-                        layout: {
-                            padding: { top: 20, bottom: 10 }
                         }
                     }
                 });
@@ -851,11 +943,17 @@
             // ===== 菜单交互 =====
             menuToggle.addEventListener('click', (e) => {
                 e.stopPropagation();
-                dropdownMenu.classList.toggle('show');
+                if (dropdownMenu.style.display === 'none') {
+                    dropdownMenu.style.display = 'block';
+                } else {
+                    dropdownMenu.style.display = 'none';
+                }
             });
             
-            document.addEventListener('click', () => {
-                dropdownMenu.classList.remove('show');
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#menu-dropdown')) {
+                    dropdownMenu.style.display = 'none';
+                }
             });
             
             // 导出数据
@@ -874,17 +972,17 @@
             
             // 清除数据
             clearData.addEventListener('click', () => {
-                clearModal.classList.add('show');
+                clearModal.classList.add('is-active');
             });
             
             modalCancel.addEventListener('click', () => {
-                clearModal.classList.remove('show');
+                clearModal.classList.remove('is-active');
             });
             
             modalConfirm.addEventListener('click', () => {
                 localStorage.removeItem(STORAGE_KEY);
                 appData = null;
-                clearModal.classList.remove('show');
+                clearModal.classList.remove('is-active');
                 showSetupPage();
             });
             
