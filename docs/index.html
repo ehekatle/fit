@@ -1,1387 +1,976 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>体重日记</title>
+    <title>体重日记 · 本地版</title>
+    <!-- 使用 Chart.js 轻量图表 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
-
-        :root {
-            --bg: #f8fafc;
-            --card-bg: white;
-            --text: #1e293b;
-            --text-light: #64748b;
-            --text-lighter: #94a3b8;
-            --border: #f1f5f9;
-            --input-bg: #f1f5f9;
-            --primary: #3b82f6;
-            --primary-dark: #2563eb;
-            --danger: #ef4444;
-            --success: #10b981;
-            --dark: #0f172a;
-            --radius-lg: 28px;
-            --radius-md: 24px;
-            --radius-sm: 40px;
-            --shadow: 0 4px 20px rgba(0,0,0,0.02);
-        }
-
         body {
-            background: var(--bg);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #e5e7eb;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
-            min-height: 100vh;
+            align-items: flex-start;
             padding: 16px;
-            color: var(--text);
         }
-
+        /* 移动卡片容器 */
         #app {
             max-width: 400px;
             width: 100%;
+            background-color: white;
+            border-radius: 32px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            padding: 20px 16px 30px;
+            margin: 0 auto;
         }
-
-        /* 设置页 */
-        .setup-container {
-            min-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+        /* 设置页 / 主界面切换 */
+        .page {
+            display: none;
         }
-
-        .setup-title {
-            font-size: 32px;
+        .page.active {
+            display: block;
+        }
+        /* 排版 */
+        .text-center { text-align: center; }
+        .text-sm { font-size: 0.875rem; color: #6b7280; }
+        .text-xs { font-size: 0.75rem; }
+        .font-bold { font-weight: 600; }
+        .mt-4 { margin-top: 20px; }
+        .mb-2 { margin-bottom: 8px; }
+        .mt-2 { margin-top: 8px; }
+        .flex { display: flex; align-items: center; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .gap-2 { gap: 8px; }
+        /* 表单 */
+        .input-group {
+            margin-bottom: 18px;
+        }
+        label {
+            display: block;
+            font-size: 0.9rem;
             font-weight: 500;
-            letter-spacing: -0.5px;
-            color: var(--dark);
-            margin-bottom: 8px;
+            margin-bottom: 5px;
+            color: #1f2937;
         }
-
-        .setup-subtitle {
-            color: var(--text-light);
-            font-size: 15px;
-            margin-bottom: 30px;
-        }
-
-        .setup-input {
+        input, .file-input-label {
             width: 100%;
-            padding: 16px;
-            border: none;
-            background: var(--input-bg);
-            border-radius: var(--radius-md);
-            font-size: 16px;
+            padding: 14px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 24px;
+            font-size: 1rem;
+            background: #f9fafb;
+            transition: 0.2s;
+        }
+        input:focus {
             outline: none;
-            margin-bottom: 12px;
+            border-color: #3b82f6;
+            background: white;
         }
-
-        .setup-input:focus {
-            background: #e6edf5;
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
-
-        .setup-btn {
-            width: 100%;
+        /* 滑块定制 */
+        .slider-container {
+            background: #f3f4f6;
             padding: 16px;
-            background: var(--dark);
-            color: white;
-            border: none;
-            border-radius: var(--radius-md);
-            font-size: 16px;
-            font-weight: 500;
-            margin-top: 8px;
-            cursor: pointer;
-        }
-
-        .setup-btn:hover {
-            opacity: 0.9;
-        }
-
-        .setup-btn.secondary {
-            background: var(--primary);
-        }
-
-        .setup-error {
-            color: var(--danger);
-            font-size: 14px;
-            margin-top: 12px;
-            text-align: center;
-        }
-
-        .import-section {
-            margin: 20px 0;
-            text-align: center;
-            border-top: 1px solid var(--border);
-            padding-top: 20px;
-        }
-
-        .import-text {
-            color: var(--text-light);
-            font-size: 14px;
-            margin-bottom: 10px;
-        }
-
-        /* BMI滑块 */
-        .bmi-slider-container {
-            margin: 20px 0;
-        }
-
-        .bmi-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 14px;
-            color: var(--text-light);
-            margin-bottom: 8px;
-        }
-
-        .bmi-value {
-            font-size: 24px;
-            font-weight: 600;
-            color: var(--primary);
-        }
-
-        input[type=range] {
-            width: 100%;
-            height: 6px;
-            background: var(--border);
-            border-radius: 3px;
-            outline: none;
-        }
-
-        input[type=range]::-webkit-slider-thumb {
-            appearance: none;
-            width: 24px;
-            height: 24px;
-            background: var(--primary);
-            border-radius: 50%;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(59,130,246,0.3);
-        }
-
-        .bmi-range-labels {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: var(--text-lighter);
-            margin-top: 6px;
-        }
-
-        .target-weight-preview {
-            background: #f0f9ff;
-            padding: 16px;
-            border-radius: 16px;
+            border-radius: 24px;
             margin: 16px 0;
+        }
+        .bmi-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+            font-size: 0.7rem;
+            color: #4b5563;
+        }
+        .bmi-labels span { flex: 1; text-align: center; }
+        .goal-preview {
+            background: #e0f2fe;
+            padding: 12px;
+            border-radius: 20px;
             text-align: center;
-        }
-
-        .target-weight-preview .label {
-            font-size: 13px;
-            color: #0369a1;
-        }
-
-        .target-weight-preview .value {
-            font-size: 28px;
             font-weight: 600;
-            color: #0284c7;
         }
-
-        /* 主界面头部 */
+        /* 按钮 */
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.15s;
+            background: #1f2937;
+            color: white;
+            margin-top: 12px;
+        }
+        .btn-outline {
+            background: white;
+            border: 1px solid #d1d5db;
+            color: #1f2937;
+        }
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+        .btn-sm {
+            padding: 10px 16px;
+            font-size: 0.9rem;
+            width: auto;
+            margin-top: 0;
+        }
+        /* 顶部用户栏 */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
-            position: relative;
         }
-
         .user-info {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
-
-        .user-avatar {
-            width: 44px;
-            height: 44px;
-            background: var(--primary);
+        .avatar {
+            width: 48px;
+            height: 48px;
+            background: #3b82f6;
+            color: white;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 18px;
+            font-weight: bold;
+            font-size: 1.5rem;
+            text-transform: uppercase;
         }
-
-        .user-name {
-            font-weight: 600;
-            font-size: 16px;
-        }
-
-        .user-stats {
-            font-size: 12px;
-            color: var(--text-light);
-        }
-
         .menu-btn {
+            font-size: 2rem;
+            line-height: 1;
             background: none;
-            border: 1px solid var(--border);
-            width: 44px;
-            height: 44px;
-            border-radius: var(--radius-sm);
-            font-size: 20px;
+            border: none;
+            padding: 0 10px;
             cursor: pointer;
+            color: #4b5563;
         }
-
-        .menu-btn:hover {
-            background: var(--input-bg);
-        }
-
-        .dropdown-menu {
-            position: absolute;
-            top: 60px;
-            right: 0;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            border: 1px solid var(--border);
-            width: 160px;
-            z-index: 100;
-            display: none;
-        }
-
-        .dropdown-menu.show {
-            display: block;
-        }
-
-        .menu-item {
-            padding: 14px 18px;
-            font-size: 14px;
-            color: var(--text);
-            cursor: pointer;
-        }
-
-        .menu-item:hover {
-            background: var(--bg);
-        }
-
-        .menu-item.danger {
-            color: var(--danger);
-        }
-
         /* 目标卡片 */
-        .target-card {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            border-radius: var(--radius-md);
-            padding: 20px;
+        .goal-card {
+            background: linear-gradient(145deg, #2563eb, #1e40af);
             color: white;
-            margin-bottom: 16px;
+            border-radius: 28px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
         }
-
-        .target-header {
+        .progress-bar-bg {
+            background: rgba(255,255,255,0.3);
+            height: 16px;
+            border-radius: 30px;
+            margin: 12px 0 6px;
+        }
+        .progress-fill {
+            background: white;
+            height: 16px;
+            border-radius: 30px;
+            width: 0%;
+            transition: width 0.2s;
+        }
+        .start-end {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .target-title {
-            font-size: 14px;
+            font-size: 0.85rem;
             opacity: 0.9;
         }
-
-        .target-value {
-            font-size: 36px;
-            font-weight: 700;
+        /* 录入区 */
+        .entry-area {
+            background: #f3f4f6;
+            border-radius: 30px;
+            padding: 18px;
+            margin-bottom: 24px;
         }
-
-        .target-unit {
-            font-size: 14px;
-            opacity: 0.8;
-            margin-left: 4px;
-        }
-
-        .progress-section {
-            margin-top: 16px;
-        }
-
-        .progress-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 13px;
-            margin-bottom: 6px;
-        }
-
-        .progress-bar-bg {
-            height: 6px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 3px;
-            overflow: hidden;
-        }
-
-        .progress-bar-fill {
-            height: 100%;
-            background: white;
-            border-radius: 3px;
-            width: 0%;
-            transition: width 0.3s;
-        }
-
-        .target-stats {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            margin-top: 8px;
-            opacity: 0.8;
-        }
-
-        /* 录入区域 */
-        .input-section {
-            background: white;
-            border-radius: var(--radius-md);
-            padding: 20px;
-            margin-bottom: 16px;
-            border: 1px solid var(--border);
-        }
-
-        .section-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 16px;
-        }
-
-        .weight-input {
-            width: 100%;
-            padding: 20px;
+        .big-input {
+            font-size: 2.5rem;
+            text-align: center;
             border: none;
-            background: var(--input-bg);
-            border-radius: var(--radius-md);
-            font-size: 32px;
-            font-weight: 600;
-            text-align: center;
-            outline: none;
-            font-family: inherit;
-        }
-
-        .weight-input:focus {
-            background: #e6edf5;
-        }
-
-        .weight-input::placeholder {
-            color: var(--text-lighter);
-            font-size: 20px;
-            font-weight: 400;
-        }
-
-        .weight-input::-webkit-outer-spin-button,
-        .weight-input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        .weight-input[type=number] {
-            -moz-appearance: textfield;
-        }
-
-        .entry-count {
-            font-size: 13px;
-            color: var(--text-light);
-            text-align: center;
-            margin-top: 12px;
-        }
-
-        .entry-count span {
-            color: var(--primary);
-            font-weight: 500;
-        }
-
-        /* 图表区域 */
-        .chart-section {
-            background: white;
-            border-radius: var(--radius-md);
-            padding: 20px;
-            border: 1px solid var(--border);
-            margin-bottom: 16px;
-            position: relative;
-        }
-
-        .chart-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 16px;
-        }
-
-        .chart-container {
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-around;
-            height: 220px;
-            padding: 0 0 20px;
-            gap: 4px;
-            position: relative;
-        }
-
-        /* 水平网格线 */
-        .chart-grid {
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 0;
-            bottom: 20px;
-            pointer-events: none;
-        }
-
-        .grid-line {
-            position: absolute;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: var(--border);
-            border-bottom: 1px dashed #e2e8f0;
-        }
-
-        .grid-label {
-            position: absolute;
-            left: -25px;
-            transform: translateY(-50%);
-            font-size: 8px;
-            color: var(--text-lighter);
-        }
-
-        .chart-column {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            min-width: 35px;
-            height: 100%;
-            justify-content: flex-end;
-            position: relative;
-            z-index: 2;
-        }
-
-        .bar-container {
+            background: transparent;
             width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-end;
-            height: 180px;
+            font-weight: 300;
+            padding: 10px 0;
+        }
+        .big-input:focus {
+            outline: none;
+        }
+        .hint {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 0.85rem;
+        }
+        /* 图表容器 */
+        .chart-container {
+            height: 300px;
             position: relative;
+            margin-top: 20px;
         }
-
-        .bar-green, .bar-red {
-            width: 24px;
-            transition: height 0.3s;
-        }
-
-        .bar-green {
-            background: var(--success);
-            border-radius: 4px 4px 0 0;
-        }
-
-        .bar-red {
-            background: var(--danger);
-            border-radius: 4px 4px 0 0;
-        }
-
-        .chart-date {
-            font-size: 11px;
-            color: var(--text-light);
-            margin-top: 4px;
-        }
-
-        .chart-weight {
-            font-size: 10px;
-            color: var(--text-lighter);
-            margin-top: 2px;
-        }
-
         /* 模态框 */
-        .modal {
+        .modal-overlay {
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top:0; left:0; width:100%; height:100%;
             background: rgba(0,0,0,0.5);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.2s;
         }
-
+        .modal-overlay.show {
+            visibility: visible;
+            opacity: 1;
+        }
         .modal-content {
             background: white;
             border-radius: 32px;
             padding: 24px;
-            width: 90%;
-            max-width: 340px;
+            width: 300px;
+            text-align: center;
         }
-
-        .modal-title {
-            font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 16px;
-        }
-
-        .modal-text {
-            font-size: 14px;
-            color: var(--text-light);
-            margin-bottom: 20px;
-        }
-
-        .modal-btns {
+        .modal-actions {
             display: flex;
-            gap: 10px;
+            gap: 12px;
+            margin-top: 24px;
         }
-
-        .modal-btn {
-            flex: 1;
-            padding: 14px;
-            border: none;
-            border-radius: var(--radius-md);
-            font-size: 14px;
-            font-weight: 500;
+        .modal-actions button {
+            flex:1; padding: 14px; border-radius: 28px; border: none; font-weight: 600;
+        }
+        /* 错误提示 */
+        .error-toast {
+            background: #dc2626;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 40px;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1100;
+            display: none;
+        }
+        /* 菜单下拉 (简单模拟) */
+        .dropdown-menu {
+            position: absolute;
+            right: 16px;
+            top: 70px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+            padding: 8px 0;
+            width: 160px;
+            display: none;
+            z-index: 200;
+        }
+        .dropdown-menu.show {
+            display: block;
+        }
+        .dropdown-menu div {
+            padding: 14px 18px;
             cursor: pointer;
         }
-
-        .modal-btn.primary {
-            background: var(--dark);
-            color: white;
-        }
-
-        .modal-btn.secondary {
-            background: var(--input-bg);
-            color: var(--text);
-        }
-
-        .modal-btn.danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .file-input {
-            display: none;
+        .dropdown-menu div:hover {
+            background: #f3f4f6;
         }
     </style>
 </head>
 <body>
-    <div id="app"></div>
+<div id="app">
+    <!-- 首次设置页面 -->
+    <div id="setupPage" class="page active">
+        <h2 class="text-center font-bold" style="font-size: 1.8rem; margin-bottom: 20px;">👋 首次设置</h2>
+        <div class="input-group">
+            <label>姓名</label>
+            <input type="text" id="setupName" placeholder="例如：张三" value="张三">
+        </div>
+        <div class="input-group">
+            <label>身高 (cm)</label>
+            <input type="number" id="setupHeight" min="100" max="250" step="1" value="172">
+        </div>
+        <div class="input-group">
+            <label>当前体重 (kg)</label>
+            <input type="number" id="setupWeight" min="30" max="200" step="0.1" value="87.6">
+        </div>
 
-    <script>
-        (function() {
-            // ==================== 常量配置 ====================
-            const STORAGE_KEY = 'weight_app_data';
-            const WEIGHT_CONFIG = {
-                MIN: 30,
-                MAX: 200,
-                HEIGHT_MIN: 100,
-                HEIGHT_MAX: 250,
-                BMI_MIN: 18.5,
-                BMI_MAX: 28,
-                BMI_DEFAULT: 22
-            };
+        <!-- BMI滑块 -->
+        <div class="slider-container">
+            <div class="flex-between">
+                <span>目标BMI: <span id="bmiValue">22.0</span></span>
+                <span class="text-sm" id="goalPreview">目标: 65.08 kg</span>
+            </div>
+            <input type="range" id="bmiSlider" min="18.5" max="28" value="22" step="0.1" style="width:100%; margin: 10px 0;">
+            <div class="bmi-labels">
+                <span>偏瘦</span><span>正常</span><span>偏胖</span><span>肥胖</span>
+            </div>
+        </div>
 
-            // ==================== 工具函数 ====================
-            const DateUtils = {
-                format: date => {
-                    const d = date || new Date();
-                    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                },
-                monthKey: date => {
-                    const d = date || new Date();
-                    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-                },
-                dayKey: date => String((date || new Date()).getDate()).padStart(2,'0'),
-                getLastNDays: (n = 7) => {
-                    const dates = [];
-                    const today = new Date();
-                    for (let i = n - 1; i >= 0; i--) {
-                        const d = new Date(today);
-                        d.setDate(today.getDate() - i);
-                        dates.push(d);
-                    }
-                    return dates;
-                },
-                display: date => `${date.getMonth()+1}/${date.getDate()}`
-            };
+        <button class="btn-outline" id="importBtn">📂 导入已有数据</button>
+        <input type="file" id="importFile" accept=".json" style="display: none;">
 
-            const MathUtils = {
-                round: num => Math.round(num * 100) / 100,
-                avg: arr => arr?.length ? MathUtils.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null,
-                nextTarget: prev => MathUtils.round(prev - (prev * 0.0007 + 0.13) / 2),
-                weightFromBMI: (bmi, height) => MathUtils.round(bmi * Math.pow(height/100, 2))
-            };
+        <button class="btn" id="startBtn" style="margin-top: 25px;">✅ 开始记录</button>
+    </div>
 
-            const StorageUtils = {
-                load: () => {
-                    try {
-                        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null;
-                    } catch {
-                        return null;
-                    }
-                },
-                save: data => {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-                },
-                clear: () => {
-                    localStorage.removeItem(STORAGE_KEY);
-                }
-            };
+    <!-- 主界面页面 -->
+    <div id="mainPage" class="page">
+        <!-- 顶部 -->
+        <div class="header">
+            <div class="user-info">
+                <div class="avatar" id="avatar"></div>
+                <div>
+                    <div id="displayName"></div>
+                    <div class="text-xs" id="displayStats"></div>
+                </div>
+            </div>
+            <div style="position: relative;">
+                <button class="menu-btn" id="menuToggle">⋯</button>
+                <div id="dropdown" class="dropdown-menu">
+                    <div id="exportData">📤 导出数据</div>
+                    <div id="clearData">🗑️ 清除数据</div>
+                </div>
+            </div>
+        </div>
 
-            // ==================== 主应用 ====================
-            class WeightApp {
-                constructor() {
-                    this.state = {
-                        view: 'setup',
-                        userData: null,
-                        bmiValue: WEIGHT_CONFIG.BMI_DEFAULT,
-                        errorMsg: null,
-                        weightInput: '',
-                        isSaving: false,
-                        showMenu: false,
-                        showModal: null
-                    };
-                    this.loadFromStorage();
-                    this.render();
-                }
+        <!-- 目标卡片 -->
+        <div class="goal-card">
+            <div class="flex-between">
+                <span>今日目标</span>
+                <span style="font-size: 1.8rem; font-weight: 700;" id="todayGoal">-- kg</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-fill" id="progressFill" style="width:0%"></div>
+            </div>
+            <div class="start-end">
+                <span id="startWeight"></span>
+                <span id="targetWeight"></span>
+            </div>
+        </div>
 
-                loadFromStorage() {
-                    try {
-                        const data = StorageUtils.load();
-                        if (data && data.name && data.height && data.weight && data.goal && data.progress) {
-                            this.state.userData = data;
-                            this.state.view = 'main';
-                            this.checkAndFillMissingData();
-                        }
-                    } catch (e) {
-                        console.log('加载数据失败', e);
-                    }
-                }
+        <!-- 录入区域 -->
+        <div class="entry-area">
+            <input type="number" step="any" id="weightInput" class="big-input" placeholder="输入后按回车" autofocus>
+            <div class="hint" id="todayCount"></div>
+        </div>
 
-                checkAndFillMissingData() {
-                    if (!this.state.userData) return;
-                    
-                    const today = new Date();
-                    const lastEntry = this.getLastEntryDate();
-                    
-                    if (!lastEntry) return;
-                    
-                    const daysDiff = Math.floor((today - lastEntry) / 86400000);
-                    console.log('最后录入日期:', lastEntry, '间隔天数:', daysDiff);
+        <!-- 图表区域 -->
+        <div class="chart-container">
+            <canvas id="weightChart" width="400" height="300"></canvas>
+        </div>
+    </div>
 
-                    if (daysDiff >= 4) {
-                        console.log('连续4天未记录，清除数据');
-                        this.clearData();
-                        this.state.view = 'setup';
-                        this.state.showModal = { 
-                            type: 'fail', 
-                            title: '减肥失败', 
-                            message: '连续4天未记录，请重新开始' 
-                        };
-                        return;
-                    }
+    <!-- 模态框 (清除确认) -->
+    <div id="modalOverlay" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 16px;">确认清除？</h3>
+            <p class="text-sm" style="margin-bottom: 20px;">所有本地数据将被删除</p>
+            <div class="modal-actions">
+                <button id="modalCancel" style="background:#e5e7eb;">取消</button>
+                <button id="modalConfirm" style="background:#dc2626; color:white;">清除</button>
+            </div>
+        </div>
+    </div>
 
-                    if (daysDiff >= 3) {
-                        console.log('连续3天未记录，自动填充');
-                        this.fillMissingDays(lastEntry, today);
-                    }
-                }
+    <!-- 错误吐司 -->
+    <div id="errorToast" class="error-toast"></div>
+</div>
 
-                getLastEntryDate() {
-                    const progress = this.state.userData?.progress;
-                    if (!progress) return null;
-                    
-                    const months = Object.keys(progress).sort();
-                    if (!months.length) return null;
-                    
-                    const lastMonth = months[months.length - 1];
-                    const days = Object.keys(progress[lastMonth]).sort();
-                    if (!days.length) return null;
-                    
-                    const [year, month] = lastMonth.split('-').map(Number);
-                    const lastDay = parseInt(days[days.length - 1]);
-                    console.log('找到最后记录:', year, month, lastDay);
-                    return new Date(year, month - 1, lastDay);
-                }
+<script>
+    (function() {
+        // ---------- 存储KEY ----------
+        const STORAGE_KEY = 'weight_app_data';
 
-                getTargetForDate(date) {
-                    const monthKey = DateUtils.monthKey(date);
-                    const dayKey = DateUtils.dayKey(date);
-                    return this.state.userData?.progress?.[monthKey]?.[dayKey]?.[0] || null;
-                }
+        // ---------- 全局变量 ----------
+        let appData = null;               // 内存数据
+        let chartInstance = null;
+        let currentMenuOpen = false;
 
-                getActualForDate(date) {
-                    const monthKey = DateUtils.monthKey(date);
-                    const dayKey = DateUtils.dayKey(date);
-                    const dayData = this.state.userData?.progress?.[monthKey]?.[dayKey];
-                    return dayData?.length > 1 ? MathUtils.avg(dayData.slice(1)) : null;
-                }
+        // ---------- DOM 元素 ----------
+        const setupPage = document.getElementById('setupPage');
+        const mainPage = document.getElementById('mainPage');
+        const setupName = document.getElementById('setupName');
+        const setupHeight = document.getElementById('setupHeight');
+        const setupWeight = document.getElementById('setupWeight');
+        const bmiSlider = document.getElementById('bmiSlider');
+        const bmiValue = document.getElementById('bmiValue');
+        const goalPreview = document.getElementById('goalPreview');
+        const startBtn = document.getElementById('startBtn');
+        const importBtn = document.getElementById('importBtn');
+        const importFile = document.getElementById('importFile');
+        const avatar = document.getElementById('avatar');
+        const displayName = document.getElementById('displayName');
+        const displayStats = document.getElementById('displayStats');
+        const todayGoal = document.getElementById('todayGoal');
+        const progressFill = document.getElementById('progressFill');
+        const startWeightSpan = document.getElementById('startWeight');
+        const targetWeightSpan = document.getElementById('targetWeight');
+        const weightInput = document.getElementById('weightInput');
+        const todayCount = document.getElementById('todayCount');
+        const menuToggle = document.getElementById('menuToggle');
+        const dropdown = document.getElementById('dropdown');
+        const exportBtn = document.getElementById('exportData');
+        const clearBtn = document.getElementById('clearData');
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalCancel = document.getElementById('modalCancel');
+        const modalConfirm = document.getElementById('modalConfirm');
+        const errorToast = document.getElementById('errorToast');
 
-                getAllActualForDate(date) {
-                    const monthKey = DateUtils.monthKey(date);
-                    const dayKey = DateUtils.dayKey(date);
-                    return this.state.userData?.progress?.[monthKey]?.[dayKey]?.slice(1) || [];
-                }
+        // ---------- 辅助函数 ----------
+        function showError(msg) {
+            errorToast.style.display = 'block';
+            errorToast.innerText = msg;
+            setTimeout(() => { errorToast.style.display = 'none'; }, 3000);
+        }
 
-                fillMissingDays(startDate, endDate) {
-                    const start = new Date(startDate);
-                    start.setDate(start.getDate() + 1);
-                    
-                    const days = [];
-                    for (let d = new Date(start); d < endDate; d.setDate(d.getDate() + 1)) {
-                        days.push(new Date(d));
-                    }
+        // 目标体重递推公式: b = a - (a*0.0008 + 0.14)/2
+        function nextGoal(prevGoal) {
+            return prevGoal - (prevGoal * 0.0008 + 0.14) / 2;
+        }
 
-                    if (!days.length) return;
+        // 获取某天的目标体重 (基于起始日期递推)
+        function getGoalForDate(targetDate, startDateStr, startGoal) {
+            // targetDate: Date, startDateStr: '2026-03-15' 格式, startGoal: 起始体重
+            const start = new Date(startDateStr + 'T12:00:00'); // 避免时区偏移
+            const target = new Date(targetDate);
+            target.setHours(12,0,0,0);
+            const daysDiff = Math.round((target - start) / (86400000));
+            if (daysDiff <= 0) return startGoal;
+            let goal = startGoal;
+            for (let i = 0; i < daysDiff; i++) {
+                goal = nextGoal(goal);
+            }
+            return goal;
+        }
 
-                    const startActual = this.getActualForDate(startDate) || this.state.userData.weight;
-                    const startTarget = this.getTargetForDate(startDate) || this.state.userData.weight;
-                    
-                    let firstActual = null;
-                    for (let d = new Date(endDate); d >= startDate; d.setDate(d.getDate() - 1)) {
-                        const actual = this.getActualForDate(d);
-                        if (actual !== null) {
-                            firstActual = actual;
-                            break;
-                        }
-                    }
+        // 获取今日日期键 YYYY-MM-DD
+        function getTodayKey() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
 
-                    if (firstActual === null) return;
+        // 解析日期键为对象
+        function parseDateKey(dateStr) {
+            const [y,m,d] = dateStr.split('-').map(Number);
+            return { y, m, d };
+        }
 
-                    let target = startTarget;
-                    const targets = days.map(() => target = MathUtils.nextTarget(target));
-                    const step = (firstActual - startActual) / (days.length + 1);
+        // 格式化日期用于显示 (m/d)
+        function formatMD(dateStr) {
+            const [y,m,d] = dateStr.split('-');
+            return `${Number(m)}/${Number(d)}`;
+        }
 
-                    days.forEach((date, i) => {
-                        const monthKey = DateUtils.monthKey(date);
-                        const dayKey = DateUtils.dayKey(date);
-                        
-                        if (!this.state.userData.progress[monthKey]) {
-                            this.state.userData.progress[monthKey] = {};
-                        }
-                        
-                        const actualWeight = MathUtils.round(startActual + step * (i + 1));
-                        this.state.userData.progress[monthKey][dayKey] = [
-                            MathUtils.round(targets[i]),
-                            actualWeight
-                        ];
+        // 保存数据到localStorage
+        function persistData() {
+            if (appData) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appData, null, 2));
+            }
+        }
+
+        // ---------- 核心：检查连续4天无数据 ----------
+        function checkAndPurgeIfNeeded() {
+            if (!appData) return false;
+            // 获取所有已有数据日期 (progress里所有月份所有天)
+            const existingDates = new Set();
+            if (appData.progress) {
+                Object.keys(appData.progress).forEach(monthKey => {
+                    const days = appData.progress[monthKey];
+                    Object.keys(days).forEach(day => {
+                        const dateStr = `${monthKey}-${day.padStart(2,'0')}`;
+                        existingDates.add(dateStr);
                     });
-
-                    StorageUtils.save(this.state.userData);
+                });
+            }
+            // 从今天往前推4天
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            let allMissing = true;
+            for (let i = 0; i < 4; i++) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const year = d.getFullYear();
+                const month = String(d.getMonth()+1).padStart(2,'0');
+                const day = String(d.getDate()).padStart(2,'0');
+                const key = `${year}-${month}-${day}`;
+                if (existingDates.has(key)) {
+                    allMissing = false;
+                    break;
                 }
+            }
+            if (allMissing && existingDates.size > 0) { // 有数据但最近4天缺失
+                // 清除所有数据
+                localStorage.removeItem(STORAGE_KEY);
+                appData = null;
+                // 跳转设置页
+                showSetupPage();
+                setTimeout(() => alert('连续4天未记录，请重新开始'), 100);
+                return true;
+            }
+            return false;
+        }
 
-                handleSetup(name, height, weight) {
-                    if (!name || !height || !weight) {
-                        this.showError('请填写所有字段');
-                        return;
-                    }
+        // ---------- 智能填充 (D+1, D+2 等) ----------
+        function fillMissingDays() {
+            if (!appData || !appData.progress) return;
+            // 提取所有存在的日期
+            const allDates = [];
+            Object.keys(appData.progress).forEach(month => {
+                Object.keys(appData.progress[month]).forEach(day => {
+                    const dateStr = `${month}-${day.padStart(2,'0')}`;
+                    allDates.push(dateStr);
+                });
+            });
+            allDates.sort(); // 升序
 
-                    name = name.trim();
-                    height = parseFloat(height);
-                    weight = MathUtils.round(parseFloat(weight));
+            if (allDates.length === 0) return;
 
-                    if (isNaN(height) || height < WEIGHT_CONFIG.HEIGHT_MIN || height > WEIGHT_CONFIG.HEIGHT_MAX) {
-                        this.showError(`身高请输入${WEIGHT_CONFIG.HEIGHT_MIN}-${WEIGHT_CONFIG.HEIGHT_MAX}cm`);
-                        return;
-                    }
+            const startDateStr = allDates[0]; // 起始日期
+            const startGoal = appData.goal;    // 其实goal是起始体重? 但需求里起始体重是weight, goal是目标体重, 但是目标体重第一天 = 起始体重
+            // 根据数据结构: 第一个值是目标体重, 所以实际上每个日期的数组[0]是当日目标
+            // 但我们需要递推目标, 所以用起始体重来算每一天目标
 
-                    if (isNaN(weight) || weight < WEIGHT_CONFIG.MIN || weight > WEIGHT_CONFIG.MAX) {
-                        this.showError(`体重请输入${WEIGHT_CONFIG.MIN}-${WEIGHT_CONFIG.MAX}kg`);
-                        return;
-                    }
+            // 遍历日期, 检查断层
+            for (let i = 0; i < allDates.length - 1; i++) {
+                const current = allDates[i];
+                const next = allDates[i+1];
+                const diff = (new Date(next) - new Date(current)) / 86400000;
+                if (diff > 1 && diff <= 3) { // 断层2天或3天
+                    // 需要填充中间日期
+                    const startActual = getAvgWeightForDate(current); // 当前实际平均值
+                    const endActual = getAvgWeightForDate(next);       // 下一个实际平均值
 
-                    const goal = MathUtils.weightFromBMI(this.state.bmiValue, height);
-                    const today = new Date();
-                    const monthKey = DateUtils.monthKey(today);
-                    const dayKey = DateUtils.dayKey(today);
+                    // 填充日期从 current+1 到 next-1
+                    for (let d = 1; d < diff; d++) {
+                        const fillDate = new Date(new Date(current).getTime() + d * 86400000);
+                        const year = fillDate.getFullYear();
+                        const month = String(fillDate.getMonth()+1).padStart(2,'0');
+                        const day = String(fillDate.getDate()).padStart(2,'0');
+                        const monthKey = `${year}-${month}`;
+                        const dayKey = String(fillDate.getDate());
 
-                    const userData = {
-                        name,
-                        height,
-                        weight,
-                        goal,
-                        progress: {
-                            [monthKey]: {
-                                [dayKey]: [weight]
-                            }
-                        }
-                    };
+                        // 目标体重：从当前日期的目标递推
+                        const currentGoal = getGoalForDate(current, startDateStr, appData.weight); // 其实weight是起始体重
+                        // 直接获取fillDate的目标
+                        const goalFill = getGoalForDate(fillDate, startDateStr, appData.weight);
 
-                    this.state.userData = userData;
-                    this.state.view = 'main';
-                    StorageUtils.save(userData);
-                    this.render();
-                }
+                        // 实际体重线性插值
+                        const weightStart = startActual;
+                        const weightEnd = endActual;
+                        const ratio = d / diff;
+                        const actualFill = weightStart + (weightEnd - weightStart) * ratio;
 
-                clearData() {
-                    StorageUtils.clear();
-                    this.state.userData = null;
-                }
-
-                handleClearData() {
-                    this.state.showModal = {
-                        type: 'clear',
-                        title: '清除数据',
-                        message: '确定要清除所有数据吗？此操作不可恢复。'
-                    };
-                    this.render();
-                }
-
-                confirmClear() {
-                    this.clearData();
-                    this.state.view = 'setup';
-                    this.state.showModal = null;
-                    this.state.showMenu = false;
-                    this.render();
-                }
-
-                async saveTodayWeight(weight) {
-                    if (this.state.isSaving) return;
-
-                    const num = MathUtils.round(parseFloat(weight));
-                    if (isNaN(num) || num < WEIGHT_CONFIG.MIN || num > WEIGHT_CONFIG.MAX) {
-                        this.showError(`请输入${WEIGHT_CONFIG.MIN}-${WEIGHT_CONFIG.MAX}之间的体重`);
-                        this.state.weightInput = '';
-                        this.render();
-                        return;
-                    }
-
-                    this.state.isSaving = true;
-                    this.render();
-
-                    const today = new Date();
-                    const monthKey = DateUtils.monthKey(today);
-                    const dayKey = DateUtils.dayKey(today);
-
-                    const existing = this.state.userData.progress?.[monthKey]?.[dayKey] || [];
-
-                    let target = existing[0];
-                    if (!target) {
-                        const yesterday = new Date(today);
-                        yesterday.setDate(yesterday.getDate() - 1);
-                        const yesterdayTarget = this.getTargetForDate(yesterday);
-                        target = yesterdayTarget ? MathUtils.nextTarget(yesterdayTarget) : this.state.userData.weight;
-                    }
-
-                    if (!this.state.userData.progress[monthKey]) {
-                        this.state.userData.progress[monthKey] = {};
-                    }
-
-                    this.state.userData.progress[monthKey][dayKey] = [
-                        MathUtils.round(target),
-                        ...existing.slice(1),
-                        num
-                    ];
-
-                    StorageUtils.save(this.state.userData);
-                    
-                    this.state.weightInput = '';
-                    this.state.isSaving = false;
-                    this.render();
-                }
-
-                getChartData() {
-                    // 获取所有有数据的日期
-                    const allDates = [];
-                    const progress = this.state.userData?.progress;
-                    
-                    if (progress) {
-                        Object.keys(progress).forEach(monthKey => {
-                            const days = Object.keys(progress[monthKey]);
-                            days.forEach(day => {
-                                const [year, month] = monthKey.split('-').map(Number);
-                                const date = new Date(year, month - 1, parseInt(day));
-                                allDates.push(date);
-                            });
-                        });
-                    }
-                    
-                    // 按日期排序
-                    allDates.sort((a, b) => a - b);
-                    
-                    // 取最近7天（从6天前到今天）
-                    const today = new Date();
-                    const sevenDaysAgo = new Date(today);
-                    sevenDaysAgo.setDate(today.getDate() - 6);
-                    
-                    // 生成最近7天的完整列表（包括无数据的日期）
-                    const result = [];
-                    for (let i = 0; i < 7; i++) {
-                        const date = new Date(sevenDaysAgo);
-                        date.setDate(sevenDaysAgo.getDate() + i);
-                        
-                        // 查找这一天是否有数据
-                        const hasData = allDates.some(d => 
-                            d.getDate() === date.getDate() && 
-                            d.getMonth() === date.getMonth() && 
-                            d.getFullYear() === date.getFullYear()
-                        );
-                        
-                        if (hasData) {
-                            const target = this.getTargetForDate(date);
-                            const actual = this.getActualForDate(date);
-                            result.push({
-                                date,
-                                display: DateUtils.display(date),
-                                target,
-                                actual,
-                                weight: actual !== null ? actual.toFixed(2) : '--',
-                                hasData: true
-                            });
+                        // 存入
+                        if (!appData.progress[monthKey]) appData.progress[monthKey] = {};
+                        if (!appData.progress[monthKey][dayKey]) {
+                            // 创建数组: [目标, 实际1, 实际2...] 但我们要存平均值? 不, 存单次录入. 这里我们仅填充一个录入值
+                            // 但需求说填充的数据同时包含目标体重和实际体重, 所以插入一条实际记录, 目标自动作为第一个元素
+                            appData.progress[monthKey][dayKey] = [goalFill, Number(actualFill.toFixed(2))];
                         } else {
-                            result.push({
-                                date,
-                                display: DateUtils.display(date),
-                                target: null,
-                                actual: null,
-                                weight: '--',
-                                hasData: false
-                            });
-                        }
-                    }
-                    
-                    return result;
-                }
-
-                calculateYAxisRange() {
-                    const chartData = this.getChartData();
-                    const actuals = chartData.map(d => d.actual).filter(a => a !== null);
-                    
-                    if (actuals.length === 0) {
-                        return { min: 60, max: 100 };
-                    }
-
-                    const avg = actuals.reduce((a, b) => a + b, 0) / actuals.length;
-                    
-                    let maxDiff = 0;
-                    actuals.forEach(actual => {
-                        const diff = Math.abs(actual - avg);
-                        if (diff > maxDiff) maxDiff = diff;
-                    });
-
-                    const padding = maxDiff + 0.5;
-                    return {
-                        min: Math.max(30, Math.floor((avg - padding) * 10) / 10),
-                        max: Math.min(200, Math.ceil((avg + padding) * 10) / 10)
-                    };
-                }
-
-                exportData() {
-                    if (!this.state.userData) return;
-                    
-                    const dataStr = JSON.stringify(this.state.userData, null, 2);
-                    const blob = new Blob([dataStr], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${this.state.userData.name}_weight_data.json`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    this.state.showMenu = false;
-                    this.render();
-                }
-
-                importData(file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        try {
-                            const data = JSON.parse(e.target.result);
-                            
-                            // 验证数据完整性
-                            if (!data.name || !data.height || !data.weight || !data.goal || !data.progress) {
-                                alert('无效的数据格式：缺少必要字段');
-                                return;
-                            }
-                            
-                            // 验证数据类型
-                            if (typeof data.name !== 'string' || 
-                                typeof data.height !== 'number' || 
-                                typeof data.weight !== 'number' || 
-                                typeof data.goal !== 'number' || 
-                                typeof data.progress !== 'object') {
-                                alert('无效的数据格式：字段类型错误');
-                                return;
-                            }
-                            
-                            this.state.userData = data;
-                            StorageUtils.save(data);
-                            this.state.view = 'main';
-                            this.state.showModal = null;
-                            
-                            // 导入后立即检查数据
-                            console.log('数据导入成功，最后录入日期:', this.getLastEntryDate());
-                            this.checkAndFillMissingData();
-                            this.render();
-                        } catch (err) {
-                            alert('导入失败：' + err.message);
-                        }
-                    };
-                    reader.readAsText(file);
-                }
-
-                showError(msg) {
-                    this.state.errorMsg = msg;
-                    this.render();
-                    setTimeout(() => {
-                        this.state.errorMsg = null;
-                        this.render();
-                    }, 3000);
-                }
-
-                render() {
-                    // 安全检查：如果视图是main但没有用户数据，切回setup
-                    if (this.state.view === 'main' && !this.state.userData) {
-                        this.state.view = 'setup';
-                    }
-                    
-                    document.getElementById('app').innerHTML = this.state.view === 'setup' ? this.renderSetup() : this.renderMain();
-                    this.attachEvents();
-                    if (this.state.showModal) this.renderModal();
-                }
-
-                renderSetup() {
-                    const goal = MathUtils.weightFromBMI(this.state.bmiValue, 170);
-                    return `
-                        <div class="setup-container">
-                            <div class="setup-title">体重日记</div>
-                            <div class="setup-subtitle">首次使用，请设置个人信息</div>
-                            <div>
-                                <input type="text" id="setup-name" class="setup-input" placeholder="你的名字" autocomplete="off">
-                                <input type="number" id="setup-height" class="setup-input" placeholder="身高 (cm)" step="1" min="100" max="250">
-                                <input type="number" id="setup-weight" class="setup-input" placeholder="当前体重 (kg)" step="0.1" min="30" max="200">
-                                
-                                <div class="bmi-slider-container">
-                                    <div class="bmi-label">
-                                        <span>目标BMI</span>
-                                        <span class="bmi-value">${this.state.bmiValue.toFixed(1)}</span>
-                                    </div>
-                                    <input type="range" id="bmi-slider" min="18.5" max="28" step="0.1" value="${this.state.bmiValue}">
-                                    <div class="bmi-range-labels">
-                                        <span>偏瘦</span>
-                                        <span>正常</span>
-                                        <span>偏胖</span>
-                                        <span>肥胖</span>
-                                    </div>
-                                </div>
-
-                                <div class="target-weight-preview">
-                                    <div class="label">目标体重</div>
-                                    <div class="value" id="target-weight-display">${goal.toFixed(2)} kg</div>
-                                </div>
-
-                                <div class="import-section">
-                                    <div class="import-text">或者导入已有数据</div>
-                                    <button id="setup-import-btn" class="setup-btn secondary">选择文件导入</button>
-                                    <input type="file" id="setup-import-file" class="file-input" accept=".json">
-                                </div>
-
-                                <button id="setup-btn" class="setup-btn">开始记录</button>
-                            </div>
-                            ${this.state.errorMsg ? `<div class="setup-error">${this.state.errorMsg}</div>` : ''}
-                        </div>
-                    `;
-                }
-
-                renderMain() {
-                    // 多重安全保护
-                    if (!this.state.userData) {
-                        this.state.view = 'setup';
-                        return this.renderSetup();
-                    }
-
-                    if (!this.state.userData.name || !this.state.userData.progress) {
-                        this.state.view = 'setup';
-                        return this.renderSetup();
-                    }
-
-                    const today = new Date();
-                    const target = this.getTargetForDate(today) || this.state.userData.weight;
-                    
-                    const monthKey = DateUtils.monthKey(today);
-                    const dayKey = DateUtils.dayKey(today);
-                    const todayEntries = this.state.userData.progress?.[monthKey]?.[dayKey] || [];
-                    const entryCount = todayEntries.length > 0 ? todayEntries.length - 1 : 0;
-
-                    let currentWeight = this.state.userData.weight;
-                    const months = Object.keys(this.state.userData.progress || {}).sort().reverse();
-                    outer: for (const month of months) {
-                        const days = Object.keys(this.state.userData.progress[month]).sort().reverse();
-                        for (const day of days) {
-                            if (this.state.userData.progress[month][day].length > 1) {
-                                const actuals = this.state.userData.progress[month][day].slice(1);
-                                currentWeight = MathUtils.avg(actuals);
-                                break outer;
-                            }
-                        }
-                    }
-
-                    const progress = ((this.state.userData.weight - currentWeight) / 
-                                    (this.state.userData.weight - this.state.userData.goal) * 100).toFixed(1);
-
-                    const chartData = this.getChartData();
-                    const yRange = this.calculateYAxisRange();
-                    const range = yRange.max - yRange.min;
-
-                    // 生成水平网格线（每0.2kg一条）
-                    const gridLines = [];
-                    const step = 0.2;
-                    for (let weight = yRange.min; weight <= yRange.max; weight += step) {
-                        const percent = ((weight - yRange.min) / range) * 100;
-                        gridLines.push({ weight: weight.toFixed(1), percent });
-                    }
-
-                    return `
-                        <div>
-                            <div class="header">
-                                <div class="user-info">
-                                    <div class="user-avatar">${this.state.userData.name[0].toUpperCase()}</div>
-                                    <div>
-                                        <div class="user-name">${this.state.userData.name}</div>
-                                        <div class="user-stats">${this.state.userData.height}cm · 目标 ${this.state.userData.goal.toFixed(2)}kg</div>
-                                    </div>
-                                </div>
-                                <button class="menu-btn" id="menu-btn">⋯</button>
-                                <div class="dropdown-menu ${this.state.showMenu ? 'show' : ''}" id="dropdown-menu">
-                                    <div class="menu-item" data-action="clear">清除数据</div>
-                                    <div class="menu-item" data-action="export">导出数据</div>
-                                </div>
-                            </div>
-
-                            <div class="target-card">
-                                <div class="target-header">
-                                    <span class="target-title">今日目标</span>
-                                    <span class="target-value">${MathUtils.round(target).toFixed(2)}<span class="target-unit">kg</span></span>
-                                </div>
-                                <div class="progress-section">
-                                    <div class="progress-label">
-                                        <span>进度</span>
-                                        <span>${progress}%</span>
-                                    </div>
-                                    <div class="progress-bar-bg">
-                                        <div class="progress-bar-fill" style="width: ${Math.min(100, Math.max(0, progress))}%"></div>
-                                    </div>
-                                    <div class="target-stats">
-                                        <span>起始 ${this.state.userData.weight.toFixed(2)}kg</span>
-                                        <span>目标 ${this.state.userData.goal.toFixed(2)}kg</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="input-section">
-                                <div class="section-title">今日体重</div>
-                                <input type="number" id="weight-input" class="weight-input" step="any" 
-                                       placeholder="输入后按回车" value="${this.state.weightInput}" 
-                                       ${this.state.isSaving ? 'disabled' : ''} autofocus>
-                                ${entryCount > 0 ? 
-                                    `<div class="entry-count">今日已记录 <span>${entryCount}</span> 次</div>` : ''}
-                            </div>
-
-                            <div class="chart-section">
-                                <div class="chart-title">最近7天体重</div>
-                                <div class="chart-container">
-                                    <!-- 水平网格线 -->
-                                    <div class="chart-grid">
-                                        ${gridLines.map(line => `
-                                            <div class="grid-line" style="bottom: ${line.percent}%;">
-                                                <span class="grid-label">${line.weight}</span>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                    
-                                    ${chartData.map(item => {
-                                        if (!item.hasData) {
-                                            return `
-                                                <div class="chart-column">
-                                                    <div class="bar-container"></div>
-                                                    <div class="chart-date">${item.display}</div>
-                                                    <div class="chart-weight">--</div>
-                                                </div>
-                                            `;
-                                        }
-                                        
-                                        const target = item.target || 0;
-                                        const actual = item.actual;
-                                        
-                                        // 计算各部分高度（基于Y轴范围）
-                                        const greenHeight = Math.min(actual, target);
-                                        const redHeight = actual > target ? actual - target : 0;
-                                        
-                                        // 转换为像素高度（从底部开始）
-                                        const greenPixels = ((greenHeight - yRange.min) / range) * 180;
-                                        const redPixels = (redHeight / range) * 180;
-                                        
-                                        // 红色柱在绿色柱上方
-                                        return `
-                                            <div class="chart-column">
-                                                <div class="bar-container">
-                                                    ${greenHeight > 0 ? 
-                                                        `<div class="bar-green" style="height: ${Math.max(0, greenPixels)}px;"></div>` : ''}
-                                                    ${redHeight > 0 ? 
-                                                        `<div class="bar-red" style="height: ${Math.max(0, redPixels)}px;"></div>` : ''}
-                                                </div>
-                                                <div class="chart-date">${item.display}</div>
-                                                <div class="chart-weight">${item.weight}</div>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                renderModal() {
-                    const modal = document.createElement('div');
-                    modal.className = 'modal';
-                    
-                    let content = '';
-                    if (this.state.showModal.type === 'clear') {
-                        content = `
-                            <div class="modal-content">
-                                <div class="modal-title">${this.state.showModal.title}</div>
-                                <div class="modal-text">${this.state.showModal.message}</div>
-                                <div class="modal-btns">
-                                    <button class="modal-btn secondary" id="modal-cancel">取消</button>
-                                    <button class="modal-btn danger" id="modal-confirm">清除</button>
-                                </div>
-                            </div>
-                        `;
-                    } else if (this.state.showModal.type === 'fail') {
-                        content = `
-                            <div class="modal-content">
-                                <div class="modal-title">${this.state.showModal.title}</div>
-                                <div class="modal-text">${this.state.showModal.message}</div>
-                                <div class="modal-btns">
-                                    <button class="modal-btn primary" id="modal-ok">确定</button>
-                                </div>
-                            </div>
-                        `;
-                    }
-
-                    modal.innerHTML = content;
-                    document.body.appendChild(modal);
-                }
-
-                attachEvents() {
-                    if (this.state.view === 'setup') {
-                        const updateGoal = () => {
-                            const height = parseFloat(document.getElementById('setup-height')?.value) || 170;
-                            document.getElementById('target-weight-display').textContent = 
-                                MathUtils.weightFromBMI(this.state.bmiValue, height).toFixed(2) + ' kg';
-                        };
-
-                        document.getElementById('bmi-slider')?.addEventListener('input', e => {
-                            this.state.bmiValue = parseFloat(e.target.value);
-                            updateGoal();
-                        });
-
-                        document.getElementById('setup-height')?.addEventListener('input', updateGoal);
-
-                        document.getElementById('setup-btn')?.addEventListener('click', () => {
-                            this.handleSetup(
-                                document.getElementById('setup-name')?.value,
-                                document.getElementById('setup-height')?.value,
-                                document.getElementById('setup-weight')?.value
-                            );
-                        });
-
-                        // 导入相关事件
-                        const importBtn = document.getElementById('setup-import-btn');
-                        const importFile = document.getElementById('setup-import-file');
-                        
-                        if (importBtn) {
-                            importBtn.addEventListener('click', () => {
-                                importFile.click();
-                            });
-                        }
-                        
-                        if (importFile) {
-                            importFile.addEventListener('change', (e) => {
-                                if (e.target.files.length) {
-                                    this.importData(e.target.files[0]);
-                                }
-                                // 清除文件选择，允许重新选择同一个文件
-                                e.target.value = '';
-                            });
-                        }
-                    } else {
-                        // 主界面事件
-                        const menuBtn = document.getElementById('menu-btn');
-                        if (menuBtn) {
-                            menuBtn.addEventListener('click', (e) => {
-                                e.stopPropagation();
-                                this.state.showMenu = !this.state.showMenu;
-                                this.render();
-                            });
-                        }
-
-                        // 点击其他地方关闭菜单
-                        document.addEventListener('click', () => {
-                            if (this.state.showMenu) {
-                                this.state.showMenu = false;
-                                this.render();
-                            }
-                        });
-
-                        // 菜单项事件
-                        document.querySelectorAll('[data-action]').forEach(el => {
-                            el.addEventListener('click', (e) => {
-                                const action = e.target.dataset.action;
-                                this.state.showMenu = false;
-                                if (action === 'clear') {
-                                    this.handleClearData();
-                                } else if (action === 'export') {
-                                    this.exportData();
-                                }
-                                this.render();
-                            });
-                        });
-
-                        // 体重输入框事件
-                        const input = document.getElementById('weight-input');
-                        if (input) {
-                            input.addEventListener('input', e => this.state.weightInput = e.target.value);
-                            input.addEventListener('keypress', async (e) => {
-                                if (e.key === 'Enter' && !this.state.isSaving) {
-                                    e.preventDefault();
-                                    await this.saveTodayWeight(input.value);
-                                }
-                            });
-                            input.focus();
-                        }
-
-                        // 模态框事件
-                        const modalCancel = document.getElementById('modal-cancel');
-                        if (modalCancel) {
-                            modalCancel.addEventListener('click', () => {
-                                document.body.removeChild(document.querySelector('.modal'));
-                                this.state.showModal = null;
-                            });
-                        }
-
-                        const modalConfirm = document.getElementById('modal-confirm');
-                        if (modalConfirm) {
-                            modalConfirm.addEventListener('click', () => {
-                                this.confirmClear();
-                                const modal = document.querySelector('.modal');
-                                if (modal) document.body.removeChild(modal);
-                            });
-                        }
-
-                        const modalOk = document.getElementById('modal-ok');
-                        if (modalOk) {
-                            modalOk.addEventListener('click', () => {
-                                document.body.removeChild(document.querySelector('.modal'));
-                                this.state.showModal = null;
-                            });
+                            // 如果已经有数据(不可能), 跳过
                         }
                     }
                 }
             }
+            // 保存填充结果
+            persistData();
+        }
 
-            window.addEventListener('DOMContentLoaded', () => new WeightApp());
-        })();
-    </script>
+        // 获取某天实际体重平均值 (用于计算)
+        function getAvgWeightForDate(dateStr) {
+            const [year, month, day] = dateStr.split('-');
+            const monthKey = `${year}-${month}`;
+            const dayKey = String(Number(day)); // 去掉前导0
+            const dayData = appData?.progress?.[monthKey]?.[dayKey];
+            if (!dayData || dayData.length <= 1) return null;
+            const weights = dayData.slice(1); // 第一个是目标
+            if (weights.length === 0) return null;
+            const sum = weights.reduce((a,b) => a + b, 0);
+            return sum / weights.length;
+        }
+
+        // ---------- 初始化或加载数据 ----------
+        function loadFromStorage() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    if (parsed && parsed.name && parsed.height && parsed.weight && parsed.goal && parsed.progress) {
+                        appData = parsed;
+                        // 检查自动清理
+                        if (checkAndPurgeIfNeeded()) return false;
+                        // 填充断层
+                        fillMissingDays();
+                        return true;
+                    }
+                } catch (e) { /* 格式错误忽略 */ }
+            }
+            return false;
+        }
+
+        // 显示设置页
+        function showSetupPage() {
+            setupPage.classList.add('active');
+            mainPage.classList.remove('active');
+        }
+
+        // 显示主页
+        function showMainPage() {
+            setupPage.classList.remove('active');
+            mainPage.classList.add('active');
+            renderMainUI();
+        }
+
+        // 更新滑块预览
+        function updateBMIPreview() {
+            const bmi = parseFloat(bmiSlider.value);
+            bmiValue.innerText = bmi.toFixed(1);
+            const heightM = parseFloat(setupHeight.value) / 100;
+            const targetWeight = bmi * heightM * heightM;
+            goalPreview.innerText = `目标: ${targetWeight.toFixed(2)} kg`;
+        }
+
+        // 设置事件
+        setupHeight.addEventListener('input', updateBMIPreview);
+        bmiSlider.addEventListener('input', updateBMIPreview);
+        updateBMIPreview();
+
+        // 导入按钮
+        importBtn.addEventListener('click', () => {
+            importFile.click();
+        });
+        importFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const json = JSON.parse(ev.target.result);
+                    if (!json.name || !json.height || !json.weight || !json.goal || !json.progress) {
+                        throw new Error('缺少必要字段');
+                    }
+                    appData = json;
+                    persistData();
+                    showMainPage();
+                } catch (err) {
+                    alert('导入失败：' + err.message);
+                } finally {
+                    importFile.value = '';
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // 开始记录
+        startBtn.addEventListener('click', () => {
+            if (!setupName.value.trim()) { showError('请输入姓名'); return; }
+            const h = parseFloat(setupHeight.value);
+            const w = parseFloat(setupWeight.value);
+            if (h < 100 || h > 250) { showError('身高需100-250cm'); return; }
+            if (w < 30 || w > 200) { showError('体重需30-200kg'); return; }
+            const bmi = parseFloat(bmiSlider.value);
+            const heightM = h / 100;
+            const goalWeight = bmi * heightM * heightM;
+
+            // 构建初始数据结构
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth()+1).padStart(2,'0');
+            const day = String(today.getDate()).padStart(2,'0');
+            const monthKey = `${year}-${month}`;
+            const dayKey = String(today.getDate()); // 无前导0
+
+            appData = {
+                name: setupName.value.trim(),
+                height: h,
+                weight: w,
+                goal: goalWeight,
+                progress: {}
+            };
+            // 存入今天起始数据: [目标体重, 实际体重]
+            // 第一天目标体重 = 起始体重 (w)
+            appData.progress[monthKey] = {
+                [dayKey]: [w, w]  // 目标为起始体重, 实际也为起始体重
+            };
+
+            persistData();
+            showMainPage();
+        });
+
+        // 渲染主界面
+        function renderMainUI() {
+            if (!appData) return;
+
+            // 头像
+            avatar.innerText = appData.name.charAt(0).toUpperCase();
+            displayName.innerText = appData.name;
+            displayStats.innerText = `${appData.height}cm · 目标 ${appData.goal.toFixed(2)}kg`;
+
+            // 目标卡片
+            const todayKey = getTodayKey();
+            const [y,m,d] = todayKey.split('-');
+            const monthKey = `${y}-${m}`;
+            const dayKey = String(Number(d));
+
+            // 今日目标计算
+            const startDate = new Date(Object.keys(appData.progress)[0] + '-01'); // 粗略用第一个月第一天？需要第一个有数据的日期
+            let firstDateStr = null;
+            outer: for (const mk in appData.progress) {
+                for (const dk in appData.progress[mk]) {
+                    firstDateStr = `${mk}-${dk.padStart(2,'0')}`;
+                    break outer;
+                }
+            }
+            if (!firstDateStr) return;
+            const todayGoalVal = getGoalForDate(new Date(todayKey + 'T12:00:00'), firstDateStr, appData.weight);
+            todayGoal.innerText = todayGoalVal.toFixed(2) + ' kg';
+
+            // 起始体重、目标体重显示
+            startWeightSpan.innerText = `开始: ${appData.weight.toFixed(1)}kg`;
+            targetWeightSpan.innerText = `目标: ${appData.goal.toFixed(1)}kg`;
+
+            // 今日实际体重平均值 (用于进度)
+            const todayData = appData.progress[monthKey]?.[dayKey];
+            let todayAvg = null;
+            if (todayData && todayData.length > 1) {
+                const vals = todayData.slice(1);
+                todayAvg = vals.reduce((s, v) => s + v, 0) / vals.length;
+                todayCount.innerText = `今日已记录 ${vals.length} 次`;
+            } else {
+                todayCount.innerText = '';
+            }
+
+            // 进度条: (起始体重 - 当前体重) / (起始体重 - 目标体重)
+            const current = todayAvg !== null ? todayAvg : (todayData ? todayData[1] || appData.weight : appData.weight);
+            const startW = appData.weight;
+            const targetW = appData.goal;
+            let percent = 0;
+            if (startW !== targetW) {
+                percent = Math.min(100, Math.max(0, ((startW - current) / (startW - targetW)) * 100));
+            }
+            progressFill.style.width = percent + '%';
+
+            // 更新图表
+            updateChart();
+
+            // 输入框聚焦
+            weightInput.focus();
+        }
+
+        // 更新图表
+        function updateChart() {
+            if (!appData) return;
+            // 获取最近7天日期 (从今天倒推)
+            const labels = [];
+            const chartData = [];
+            const chartColors = [];
+            const tooltips = [];
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const firstDateStr = Object.keys(appData.progress).length ? (() => {
+                for (const mk in appData.progress) {
+                    for (const dk in appData.progress[mk]) {
+                        return `${mk}-${dk.padStart(2,'0')}`;
+                    }
+                }
+            })() : null;
+            if (!firstDateStr) return;
+
+            // 收集最近7天平均值
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const year = d.getFullYear();
+                const month = String(d.getMonth()+1).padStart(2,'0');
+                const day = String(d.getDate()).padStart(2,'0');
+                const dateKey = `${year}-${month}-${day}`;
+                const monthKey = `${year}-${month}`;
+                const dayKey = String(d.getDate());
+                const dayRec = appData.progress[monthKey]?.[dayKey];
+
+                let avg = null;
+                let goalForDay = getGoalForDate(d, firstDateStr, appData.weight);
+                if (dayRec && dayRec.length > 1) {
+                    const vals = dayRec.slice(1);
+                    avg = vals.reduce((s, v) => s + v, 0) / vals.length;
+                }
+                labels.push(formatMD(dateKey));
+                chartData.push(avg);
+                if (avg !== null) {
+                    chartColors.push(avg <= goalForDay ? '#10b981' : '#ef4444');
+                    tooltips.push(`${avg.toFixed(2)}kg (目标: ${goalForDay.toFixed(2)}kg)`);
+                } else {
+                    chartColors.push('#e5e7eb'); // 灰色空柱子
+                    tooltips.push(`无记录 (目标: ${goalForDay.toFixed(2)}kg)`);
+                }
+            }
+
+            // Y轴范围计算: 取最早有数据的实际体重取整
+            let base = 70;
+            for (let i = 0; i < chartData.length; i++) {
+                if (chartData[i] !== null) {
+                    base = Math.round(chartData[i]);
+                    break;
+                }
+            }
+            const yMin = base - 2;
+            const yMax = base + 1;
+
+            const ctx = document.getElementById('weightChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: chartData,
+                        backgroundColor: chartColors,
+                        borderRadius: 8,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => tooltips[ctx.dataIndex] || ''
+                            }
+                        },
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            min: yMin,
+                            max: yMax,
+                            grid: { stepSize: 0.2, color: '#e5e7eb' },
+                            title: { display: true, text: '体重 (kg)' }
+                        }
+                    },
+                    layout: { padding: { top: 20 } }
+                }
+            });
+
+            // 手动绘制数值标签 (chart.js 没有内置柱顶标签，可以用插件，但这里简化，需求里为可选，可忽略)
+        }
+
+        // 保存今日录入
+        function saveTodaysWeight(value) {
+            if (!appData) return;
+            const num = parseFloat(value);
+            if (isNaN(num) || num < 30 || num > 200) {
+                showError('请输入30-200之间的体重');
+                return;
+            }
+            const rounded = Math.round(num * 100) / 100;
+
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth()+1).padStart(2,'0');
+            const day = String(today.getDate()).padStart(2,'0');
+            const monthKey = `${year}-${month}`;
+            const dayKey = String(today.getDate());
+
+            // 确保月份存在
+            if (!appData.progress[monthKey]) appData.progress[monthKey] = {};
+
+            // 获取当天目标体重 (基于起始日递推)
+            const firstDateStr = (() => {
+                for (const mk in appData.progress) {
+                    for (const dk in appData.progress[mk]) {
+                        return `${mk}-${dk.padStart(2,'0')}`;
+                    }
+                }
+            })();
+            const todayGoalVal = getGoalForDate(new Date(today.setHours(12,0,0,0)), firstDateStr, appData.weight);
+
+            if (!appData.progress[monthKey][dayKey]) {
+                // 新建: [目标体重, 录入值]
+                appData.progress[monthKey][dayKey] = [todayGoalVal, rounded];
+            } else {
+                // 追加
+                appData.progress[monthKey][dayKey].push(rounded);
+            }
+
+            persistData();
+            // 填充断层 (每次录入后尝试填充)
+            fillMissingDays();
+            // 重新渲染
+            renderMainUI();
+            weightInput.value = '';
+        }
+
+        // 事件: 回车保存
+        weightInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                saveTodaysWeight(weightInput.value);
+            }
+        });
+
+        // 菜单切换
+        menuToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown.classList.toggle('show');
+            currentMenuOpen = !currentMenuOpen;
+        });
+        document.addEventListener('click', () => {
+            dropdown.classList.remove('show');
+        });
+
+        // 导出
+        exportBtn.addEventListener('click', () => {
+            if (!appData) return;
+            const dataStr = JSON.stringify(appData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${appData.name}_weight_data.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            dropdown.classList.remove('show');
+        });
+
+        // 清除
+        clearBtn.addEventListener('click', () => {
+            dropdown.classList.remove('show');
+            modalOverlay.classList.add('show');
+        });
+        modalCancel.addEventListener('click', () => {
+            modalOverlay.classList.remove('show');
+        });
+        modalConfirm.addEventListener('click', () => {
+            localStorage.removeItem(STORAGE_KEY);
+            appData = null;
+            modalOverlay.classList.remove('show');
+            showSetupPage();
+        });
+
+        // 启动检查
+        if (loadFromStorage()) {
+            showMainPage();
+        } else {
+            showSetupPage();
+        }
+    })();
+</script>
 </body>
 </html>
