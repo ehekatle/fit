@@ -403,6 +403,7 @@
             padding: 20px;
             border: 1px solid var(--border);
             margin-bottom: 16px;
+            position: relative;
         }
 
         .chart-title {
@@ -416,9 +417,36 @@
             align-items: flex-end;
             justify-content: space-around;
             height: 220px;
-            padding: 10px 0 20px;
+            padding: 0 0 20px;
             gap: 4px;
             position: relative;
+        }
+
+        /* 水平网格线 */
+        .chart-grid {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 20px;
+            pointer-events: none;
+        }
+
+        .grid-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--border);
+            border-bottom: 1px dashed #e2e8f0;
+        }
+
+        .grid-label {
+            position: absolute;
+            left: -25px;
+            transform: translateY(-50%);
+            font-size: 8px;
+            color: var(--text-lighter);
         }
 
         .chart-column {
@@ -430,14 +458,17 @@
             min-width: 35px;
             height: 100%;
             justify-content: flex-end;
+            position: relative;
+            z-index: 2;
         }
 
         .bar-container {
             width: 100%;
-            height: 180px;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: flex-end;
+            height: 180px;
             position: relative;
         }
 
@@ -459,14 +490,13 @@
         .chart-date {
             font-size: 11px;
             color: var(--text-light);
-            margin-top: 8px;
+            margin-top: 4px;
         }
 
         .chart-weight {
             font-size: 10px;
             color: var(--text-lighter);
-            position: absolute;
-            bottom: -20px;
+            margin-top: 2px;
         }
 
         /* 模态框 */
@@ -638,8 +668,10 @@
                     if (!lastEntry) return;
                     
                     const daysDiff = Math.floor((today - lastEntry) / 86400000);
+                    console.log('最后录入日期:', lastEntry, '间隔天数:', daysDiff);
 
                     if (daysDiff >= 4) {
+                        console.log('连续4天未记录，清除数据');
                         this.clearData();
                         this.state.view = 'setup';
                         this.state.showModal = { 
@@ -651,6 +683,7 @@
                     }
 
                     if (daysDiff >= 3) {
+                        console.log('连续3天未记录，自动填充');
                         this.fillMissingDays(lastEntry, today);
                     }
                 }
@@ -667,7 +700,9 @@
                     if (!days.length) return null;
                     
                     const [year, month] = lastMonth.split('-').map(Number);
-                    return new Date(year, month - 1, parseInt(days[days.length - 1]));
+                    const lastDay = parseInt(days[days.length - 1]);
+                    console.log('找到最后记录:', year, month, lastDay);
+                    return new Date(year, month - 1, lastDay);
                 }
 
                 getTargetForDate(date) {
@@ -973,6 +1008,10 @@
                             StorageUtils.save(data);
                             this.state.view = 'main';
                             this.state.showModal = null;
+                            
+                            // 导入后立即检查数据
+                            console.log('数据导入成功，最后录入日期:', this.getLastEntryDate());
+                            this.checkAndFillMissingData();
                             this.render();
                         } catch (err) {
                             alert('导入失败：' + err.message);
@@ -1084,6 +1123,14 @@
                     const yRange = this.calculateYAxisRange();
                     const range = yRange.max - yRange.min;
 
+                    // 生成水平网格线（每0.2kg一条）
+                    const gridLines = [];
+                    const step = 0.2;
+                    for (let weight = yRange.min; weight <= yRange.max; weight += step) {
+                        const percent = ((weight - yRange.min) / range) * 100;
+                        gridLines.push({ weight: weight.toFixed(1), percent });
+                    }
+
                     return `
                         <div>
                             <div class="header">
@@ -1133,13 +1180,20 @@
                             <div class="chart-section">
                                 <div class="chart-title">最近7天体重</div>
                                 <div class="chart-container">
+                                    <!-- 水平网格线 -->
+                                    <div class="chart-grid">
+                                        ${gridLines.map(line => `
+                                            <div class="grid-line" style="bottom: ${line.percent}%;">
+                                                <span class="grid-label">${line.weight}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                    
                                     ${chartData.map(item => {
                                         if (!item.hasData) {
                                             return `
                                                 <div class="chart-column">
-                                                    <div class="bar-container">
-                                                        <!-- 无数据 -->
-                                                    </div>
+                                                    <div class="bar-container"></div>
                                                     <div class="chart-date">${item.display}</div>
                                                     <div class="chart-weight">--</div>
                                                 </div>
@@ -1149,21 +1203,22 @@
                                         const target = item.target || 0;
                                         const actual = item.actual;
                                         
-                                        // 计算各部分高度
+                                        // 计算各部分高度（基于Y轴范围）
                                         const greenHeight = Math.min(actual, target);
                                         const redHeight = actual > target ? actual - target : 0;
                                         
-                                        // 转换为像素高度
-                                        const greenPercent = ((greenHeight - yRange.min) / range) * 180;
-                                        const redPercent = (redHeight / range) * 180;
+                                        // 转换为像素高度（从底部开始）
+                                        const greenPixels = ((greenHeight - yRange.min) / range) * 180;
+                                        const redPixels = (redHeight / range) * 180;
                                         
+                                        // 红色柱在绿色柱上方
                                         return `
                                             <div class="chart-column">
                                                 <div class="bar-container">
                                                     ${greenHeight > 0 ? 
-                                                        `<div class="bar-green" style="height: ${Math.max(0, greenPercent)}px;"></div>` : ''}
+                                                        `<div class="bar-green" style="height: ${Math.max(0, greenPixels)}px;"></div>` : ''}
                                                     ${redHeight > 0 ? 
-                                                        `<div class="bar-red" style="height: ${Math.max(0, redPercent)}px;"></div>` : ''}
+                                                        `<div class="bar-red" style="height: ${Math.max(0, redPixels)}px;"></div>` : ''}
                                                 </div>
                                                 <div class="chart-date">${item.display}</div>
                                                 <div class="chart-weight">${item.weight}</div>
