@@ -1,822 +1,557 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>体重日记 · 本地记录</title>
-    <!-- Bulma CSS (轻量现代框架) -->
+    <!-- Bulma CSS (轻量, 移动优先) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
-    <!-- Chart.js 3 用于柱状图 -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <!-- Chart.js 用于柱状图 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
-        /* 自定义中低饱和度色彩与移动端优化 */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            background-color: #f5f7fa;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-            width: 100%;
-            padding: 12px 16px;
-        }
-        /* 卡片通用阴影 */
-        .card {
-            border-radius: 24px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-            border: none;
-            margin-bottom: 20px;
-            overflow: hidden;
-        }
-        /* 动态渐变卡片专属 */
-        .progress-card {
-            position: relative;
-            background-color: #f0f0f0;  /* 右侧浅灰基底 */
-            background-image: linear-gradient(135deg, #e9ecef 0%, #f1f3f5 100%);
-            border-radius: 24px;
-            padding: 0;                 /* 由内部填充控制 */
-            min-height: 180px;
-            isolation: isolate;
-        }
-        /* 左侧动态宽度层 (绿色或红色渐变) */
-        .progress-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 0%;                  /* JS动态修改 */
-            background: linear-gradient(135deg, #6fcf97, #27ae60); /* 绿色渐变 */
-            transition: width 0.4s ease;
-            border-radius: 24px 0 0 24px;
-            z-index: 1;
-        }
-        /* 当进度层为红色时的样式 (由js切换类) */
-        .progress-layer.is-over {
-            background: linear-gradient(135deg, #ff9a9e, #f26b6b);
-        }
-        /* 卡片内容 - 利用mix-blend-mode保证文字可见 */
-        .card-content-blend {
-            position: relative;
-            z-index: 10;
-            padding: 20px 18px;
-            color: white;               /* 基础白色，通过difference反转产生深色 */
-            mix-blend-mode: difference;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;        /* 让点击穿透到菜单按钮（按钮需要单独处理） */
-        }
-        /* 可点击元素需要恢复指针事件 */
-        .clickable-area {
-            pointer-events: auto;
-        }
-        /* 头像圆形 + 彩虹渐变背景 */
-        .avatar-circle {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: linear-gradient(145deg, #ffd166, #ff9f1c, #ef476f, #b5179e);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 1.5rem;
-            color: white;
-            text-transform: uppercase;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-            flex-shrink: 0;
-        }
-        /* 用户信息行 */
-        .user-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .user-details {
-            display: flex;
-            flex-direction: column;
-            font-size: 0.9rem;
-            line-height: 1.3;
-            color: #000;               /* 会被mix-blend处理，这里保留语义 */
-        }
-        .user-details .name {
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-        .menu-btn {
-            margin-left: auto;
-            font-size: 1.8rem;
-            line-height: 1;
-            cursor: pointer;
-            user-select: none;
-            padding: 0 4px;
-            color: currentColor;        /* 跟随混合模式 */
-        }
-        /* 下拉菜单 (绝对定位简易实现) */
-        .dropdown-menu-custom {
-            position: absolute;
-            top: 60px;
-            right: 20px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            z-index: 100;
-            min-width: 160px;
-            display: none;
-            pointer-events: auto;
-            color: #1e1e2f;             /* 深色文字，不受混合影响 */
-            padding: 8px 0;
-        }
-        .dropdown-menu-custom.is-active {
-            display: block;
-        }
-        .dropdown-item {
-            padding: 12px 20px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background 0.1s;
-        }
-        .dropdown-item:hover {
-            background-color: #f5f5f5;
-        }
-        /* 体重数字大号 */
-        .weight-large {
-            font-size: 2.2rem;
-            font-weight: 600;
-            line-height: 1.1;
-        }
-        .weight-unit {
-            font-size: 1rem;
-            margin-left: 2px;
-        }
-        .weight-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            margin: 6px 0 4px;
-        }
-        .start-to-goal {
-            font-size: 0.95rem;
-            opacity: 0.9;
-            margin-top: 4px;
-            letter-spacing: 0.3px;
-        }
+        * { box-sizing: border-box; }
+        body { background: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; padding: 1rem; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; }
+        .app-container { max-width: 480px; width: 100%; margin: 0 auto; }
+        .card { border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.02); background: white; border: none; }
+        .goal-card { overflow: hidden; position: relative; border-radius: 28px; padding: 0; background-color: #f1f3f5; }
+        .progress-layer { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: linear-gradient(145deg, #4caf92, #2e7d5e); transition: width 0.4s cubic-bezier(0.2, 0.9, 0.3, 1); z-index: 1; }
+        .progress-layer.over-target { background: linear-gradient(145deg, #e58a7c, #c54c3b); }  /* 红色梯度当超标 */
+        .card-content { position: relative; z-index: 5; padding: 1.25rem 1.2rem; color: #1e2b2f; mix-blend-mode: difference; --text-light: #f8fbfd; }
+        .mix-diff { color: #eef3f7; } /* 差异模式确保可见，但具体文字颜色由背景反向生成，这里保留默认几乎白色 */
+        .user-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem; }
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .avatar { width: 44px; height: 44px; border-radius: 44px; background: linear-gradient(135deg, #f9c5d1, #9796f0, #a1c4fd); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 1.4rem; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.2); text-transform: uppercase; }
+        .username-meta { font-size: 0.95rem; line-height: 1.3; font-weight: 500; opacity: 0.95; }
+        .menu-btn { background: transparent; border: none; font-size: 1.6rem; line-height: 1; cursor: pointer; color: inherit; padding: 0 8px; opacity: 0.8; }
+        .weight-row { display: flex; justify-content: space-between; align-items: baseline; margin: 0.8rem 0 0.2rem; }
+        .big-weight { font-size: 2.2rem; font-weight: 600; letter-spacing: -0.5px; }
+        .unit { font-size: 1rem; font-weight: 400; margin-left: 2px; }
+        .start2goal { font-size: 1rem; font-weight: 400; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 10px; margin-top: 8px; }
         /* 录入区域 */
-        .input-card {
-            background: white;
-            border-radius: 24px;
-            padding: 18px;
-        }
-        .weight-input {
-            text-align: center;
-            font-size: 2rem;
-            border: none;
-            background: #f1f4f8;
-            border-radius: 60px;
-            padding: 12px 20px;
-            width: 100%;
-            outline: none;
-            font-weight: 500;
-            color: #1e2b3c;
-        }
-        .weight-input::placeholder {
-            color: #aab7c4;
-            font-size: 1.6rem;
-            font-weight: 300;
-        }
-        .history-badge {
-            text-align: center;
-            color: #5f6c80;
-            font-size: 1.1rem;
-            margin-top: 12px;
-            background: #f0f4fa;
-            padding: 10px;
-            border-radius: 40px;
-            word-break: break-all;
-        }
-        /* 图表容器 */
-        .chart-container {
-            background: white;
-            border-radius: 24px;
-            padding: 16px 10px 10px 10px;
-            height: 300px;
-        }
-        /* 设置卡片 */
-        .setup-card {
-            background: white;
-            border-radius: 28px;
-            padding: 28px 22px;
-        }
-        .preview-badge {
-            background: #e3f1e3;
-            border-radius: 20px;
-            padding: 18px;
-            text-align: center;
-            margin: 20px 0 10px;
-        }
-        .goal-number {
-            color: #2e7d5e;
-            font-size: 2rem;
-            font-weight: 700;
-        }
-        .slider-labels {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            color: #5f6b7a;
-            margin-top: 5px;
-        }
-        .button.is-primary {
-            background-color: #3b8b6e;
-            border: none;
-        }
-        .button.is-primary:hover {
-            background-color: #2f735a;
-        }
-        /* 模态框 */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.3);
-            backdrop-filter: blur(4px);
-            align-items: center;
-            justify-content: center;
-            z-index: 200;
-        }
-        .modal.is-active {
-            display: flex;
-        }
-        .modal-content {
-            background: white;
-            border-radius: 32px;
-            padding: 28px;
-            max-width: 320px;
-            text-align: center;
-        }
-        .modal-buttons {
-            display: flex;
-            gap: 16px;
-            margin-top: 24px;
-            justify-content: center;
-        }
-        hr {
-            margin: 10px 0;
-        }
-        .help-text {
-            font-size: 0.8rem;
-            color: #7f8c9f;
-        }
-        /* 其他 */
-        .is-hidden {
-            display: none !important;
-        }
+        .entry-section { margin: 20px 0 16px; }
+        .history-tag { background: #f0f2f5; border-radius: 40px; padding: 8px 18px; font-size: 1rem; color: #2c3e4f; display: inline-block; margin-top: 8px; }
+        .history-tag span { font-family: 'SF Mono', monospace; font-weight: 500; }
+        /* 滑块定制 */
+        .bmi-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: #6c7a89; margin-top: 2px; }
+        .setup-card { padding: 1.8rem 1.5rem; }
+        .field:not(:last-child) { margin-bottom: 1.5rem; }
+        .slider-value { font-weight: 600; min-width: 45px; text-align: right; }
+        .chart-container { height: 260px; margin: 25px 0 10px; position: relative; }
+        .grid-btn { text-align: center; margin-top: 20px; }
+        .modal-card { border-radius: 28px; overflow: hidden; }
+        .dropdown-menu { min-width: 140px; right: 0; left: auto; border-radius: 16px; padding: 0.5rem 0; }
+        .dropdown-item { cursor: pointer; }
+        .file-input { display: none; }
+        .is-size-7 { font-size: 0.8rem; }
+        .tag-group { display: flex; gap: 8px; flex-wrap: wrap; }
     </style>
 </head>
 <body>
-<div class="container" id="app">
-    <!-- 首次设置页面 (默认显示) -->
-    <div id="setupView" class="setup-card card">
-        <h2 class="is-size-4 has-text-weight-semibold mb-4">👋 首次设置</h2>
-        <div class="field">
-            <label class="label">姓名</label>
-            <input class="input" type="text" id="nameInput" placeholder="ephercy" value="ephercy">
-        </div>
-        <div class="field">
-            <label class="label">身高 (cm) 100-250</label>
-            <input class="input" type="number" id="heightInput" min="100" max="250" step="1" value="172">
-        </div>
-        <div class="field">
-            <label class="label">当前体重 (kg) 30-200</label>
-            <input class="input" type="number" id="currentWeightInput" min="30" max="200" step="0.1" value="92">
-        </div>
-        <div class="field">
-            <label class="label">目标BMI <span id="bmiValueDisplay">24.00</span></label>
-            <input type="range" id="bmiSlider" class="slider" min="18.5" max="28" step="0.01" value="24.00">
-            <div class="slider-labels">
-                <span>偏瘦</span><span>正常</span><span>偏胖</span><span>肥胖</span>
+<div class="app-container" id="app">
+    <!-- 动态视图：setup 或 main -->
+    <div v-if="!isInitialized" class="setup-view">
+        <div class="card setup-card">
+            <h2 class="title is-5 mb-4">🏁 首次设置</h2>
+            <div class="field">
+                <label class="label">姓名</label>
+                <input class="input" type="text" v-model="setup.name" placeholder="例如 ephercy" autocomplete="off">
+            </div>
+            <div class="field">
+                <label class="label">身高 (cm)</label>
+                <input class="input" type="number" step="1" min="100" max="250" v-model.number="setup.height" @input="recalcGoalFromBMI">
+            </div>
+            <div class="field">
+                <label class="label">当前体重 (kg)</label>
+                <input class="input" type="number" step="0.1" min="30" max="200" v-model.number="setup.current">
+            </div>
+            <div class="field">
+                <label class="label">目标BMI</label>
+                <div class="is-flex is-align-items-center">
+                    <input class="slider is-fullwidth" type="range" min="18.5" max="28" step="0.01" v-model.number="setup.targetBMI" @input="syncGoalFromBMI">
+                    <span class="slider-value ml-2">{{ setup.targetBMI.toFixed(2) }}</span>
+                </div>
+                <div class="bmi-labels">
+                    <span>偏瘦</span><span>正常</span><span>偏胖</span><span>肥胖</span>
+                </div>
+            </div>
+            <div class="field">
+                <label class="label">目标体重 (kg)</label>
+                <input class="input" type="number" step="0.01" min="30" max="200" v-model.number="setup.targetWeight" @input="syncBMIFromGoal">
+            </div>
+            <div class="field is-grouped is-grouped-centered mt-5">
+                <button class="button is-primary is-fullwidth" @click="startRecording">开始记录</button>
+            </div>
+            <div class="has-text-centered mt-4">
+                <span class="is-size-7 has-text-grey">或</span>
+                <button class="button is-ghost is-small" @click="triggerImport">导入已有数据</button>
+                <input type="file" id="importFile" accept=".json" @change="importData" style="display: none;">
             </div>
         </div>
-        <!-- 目标体重预览卡片 -->
-        <div class="preview-badge">
-            <div class="has-text-grey-light mb-1">您的目标体重</div>
-            <span class="goal-number" id="goalPreview">70.00</span> kg
-        </div>
-        <!-- 导入按钮 -->
-        <button class="button is-fullwidth is-light mb-3" id="importBtn">📂 导入已有数据</button>
-        <button class="button is-fullwidth is-primary" id="startBtn">开始记录</button>
-        <p class="help-text mt-3">所有数据仅保存在本地</p>
     </div>
 
-    <!-- 主界面 (默认隐藏) -->
-    <div id="mainView" class="is-hidden">
+    <!-- 主界面 -->
+    <div v-else class="main-view">
         <!-- 动态渐变色卡片 -->
-        <div class="progress-card card" id="progressCard">
-            <div class="progress-layer" id="progressLayer"></div>
-            <div class="card-content-blend" id="blendContent">
-                <!-- 用户信息行 -->
-                <div class="user-row clickable-area">
-                    <div class="avatar-circle" id="avatar">E</div>
-                    <div class="user-details">
-                        <span class="name" id="headerName">ephercy</span>
-                        <span><span id="headerHeight">172</span>cm · 目标 <span id="headerGoal">70.0</span>kg</span>
+        <div class="card goal-card" ref="goalCard">
+            <div class="progress-layer" :class="{ 'over-target': isOverTarget }" :style="{ width: progressPercent + '%' }"></div>
+            <div class="card-content mix-diff">
+                <!-- 顶部用户行 -->
+                <div class="user-row">
+                    <div class="user-info">
+                        <div class="avatar">{{ userInitials }}</div>
+                        <div class="username-meta">
+                            <div>{{ userData.name || 'ephercy' }}</div>
+                            <div>{{ userData.height }}cm / 目标 {{ userData.goal }}kg</div>
+                        </div>
                     </div>
-                    <div class="menu-btn clickable-area" id="menuBtn">⋯</div>
-                    <!-- 简易下拉菜单 -->
-                    <div class="dropdown-menu-custom" id="dropdownMenu">
-                        <div class="dropdown-item" id="exportData">📤 导出数据</div>
-                        <div class="dropdown-item" id="clearData">🗑️ 清除数据</div>
+                    <div class="dropdown is-right" :class="{ 'is-active': menuActive }">
+                        <button class="menu-btn" @click.stop="toggleMenu">⋯</button>
+                        <div class="dropdown-menu" role="menu">
+                            <div class="dropdown-content">
+                                <a class="dropdown-item" @click="exportData">导出数据</a>
+                                <a class="dropdown-item" @click="confirmClear = true">清除数据</a>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <!-- 今日体重栏 -->
+                <!-- 今日体重卡片双数字 -->
                 <div class="weight-row">
-                    <span class="weight-large" id="todayActual">92.0</span>
-                    <span class="weight-large" id="todayGoal">92.0</span>
-                </div>
-                <div class="weight-row" style="font-size:0.9rem; margin-top:-5px;">
-                    <span>今日实际</span>
-                    <span>今日目标</span>
+                    <span class="big-weight">{{ currentDisplayWeight }}<span class="unit">kg</span></span>
+                    <span class="big-weight">{{ todayGoalWeight }}<span class="unit">kg</span></span>
                 </div>
                 <!-- 起始→目标 -->
-                <div class="start-to-goal" id="rangeText">92.0 kg → 70.0 kg</div>
+                <div class="start2goal">{{ userData.start }} kg → {{ userData.goal }} kg</div>
             </div>
         </div>
 
-        <!-- 体重录入卡片 -->
-        <div class="input-card card">
-            <input type="number" class="weight-input" id="weightEntry" placeholder="今日体重" step="any">
-            <div class="history-badge" id="todayHistory"></div>
+        <!-- 体重录入 -->
+        <div class="entry-section">
+            <input class="input is-large has-text-centered" type="number" step="any" placeholder="今日体重" v-model="entryWeight" @keyup.enter="saveWeight">
+            <div class="history-tag" v-if="todayEntries.length">
+                <span v-for="(val, idx) in todayEntries" :key="idx">{{ val.toFixed(2) }}<span v-if="idx < todayEntries.length-1"> - </span></span>
+            </div>
         </div>
 
-        <!-- 柱状图卡片 -->
-        <div class="chart-container card">
-            <canvas id="weightChart" height="260"></canvas>
+        <!-- 柱状图区域 最近7天 -->
+        <div class="card" style="padding: 12px 8px 0;">
+            <div class="chart-container">
+                <canvas id="weightChart" width="400" height="260"></canvas>
+            </div>
         </div>
     </div>
 
     <!-- 清除确认模态框 -->
-    <div class="modal" id="clearModal">
-        <div class="modal-content">
-            <h3 class="is-size-5 has-text-weight-bold mb-2">确认清除？</h3>
-            <p class="mb-4 has-text-grey">所有本地数据将被永久删除</p>
-            <div class="modal-buttons">
-                <button class="button is-light" id="cancelClear">取消</button>
-                <button class="button is-danger" id="confirmClear">清除</button>
-            </div>
+    <div class="modal" :class="{ 'is-active': confirmClear }">
+        <div class="modal-background" @click="confirmClear = false"></div>
+        <div class="modal-card" style="max-width: 360px;">
+            <section class="modal-card-body has-text-centered px-4 py-5">
+                <p class="title is-5">确认清除？</p>
+                <p class="subtitle is-6 has-text-grey">所有本地数据将被永久删除</p>
+                <div class="buttons is-centered mt-4">
+                    <button class="button is-light" @click="confirmClear = false">取消</button>
+                    <button class="button is-danger" @click="clearAllData">清除</button>
+                </div>
+            </section>
         </div>
     </div>
 </div>
 
 <script>
-    (function() {
-        // ---------- 存储键名 ----------
-        const STORAGE_KEY = 'weightDiaryData';
+    const { createApp, ref, reactive, computed, watch, nextTick } = Vue;
 
-        // ---------- 全局默认数据结构 ----------
-        function getEmptyData() {
-            return {
-                name: "ephercy",
+    const app = createApp({
+        setup() {
+            // 响应式状态
+            const isInitialized = ref(false);
+            const userData = ref(null);               // 核心数据结构
+            const setup = reactive({
+                name: 'ephercy',
                 height: 172,
-                start: 92.00,
-                "start-date": new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit' }).replace(/\//g,'-'), // 格式如2026-03-16
-                goal: 70.00,
-                "goal-date": "",
-                progress: {}   // 示例: { "000": "92.00 * 92.05 - 92.10" }
-            };
-        }
-
-        // ---------- 全局状态 ----------
-        let appData = null;               // 当前内存数据
-        let chartInstance = null;          // chart.js实例
-
-        // 辅助函数: 获取今日的日期key (从开始日算起的天数)  例如 "000", "001"
-        function getTodayKey() {
-            if (!appData || !appData['start-date']) return '000';
-            const start = new Date(appData['start-date'].replace(/-/g, '/') + ' 00:00:00');
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            const diffTime = today - start;
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            if (diffDays < 0) return '000';   // 今天早于开始日，但不会发生
-            return diffDays.toString().padStart(3, '0');
-        }
-
-        // 根据已有数据计算某一天的目标体重 (递推公式 b = a - (a * 0.0008 + 0.14)/2 )
-        function calculateGoalWeight(startWeight, daysFromStart) {
-            let w = startWeight;
-            for (let i = 0; i < daysFromStart; i++) {
-                w = w - (w * 0.0008 + 0.14) / 2;
-                if (w < 0) w = 0; // 不会为负，安全
-            }
-            return Math.round(w * 100) / 100;
-        }
-
-        // 重新计算所有progress中的目标体重并更新数据结构 (基于起始体重)
-        function refreshAllGoals() {
-            if (!appData) return;
-            const startW = parseFloat(appData.start);
-            const startDate = new Date(appData['start-date'].replace(/-/g, '/'));
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            const maxDays = Math.max(0, Math.floor((today - startDate) / (86400000)) );
-            // 重新生成progress对象: 保证每天有目标值，实际值保留原有
-            const newProgress = {};
-            for (let day = 0; day <= maxDays; day++) {
-                const key = day.toString().padStart(3, '0');
-                const goal = calculateGoalWeight(startW, day);
-                let existing = appData.progress?.[key] || '';
-                // 格式: "目标体重 * 实际1 - 实际2"
-                if (existing.trim() === '') {
-                    existing = goal.toFixed(2) + ' *';
-                } else {
-                    // 提取原有实际记录部分，替换目标值
-                    const parts = existing.split('*');
-                    if (parts.length >= 1) {
-                        const actualPart = parts.slice(1).join('*').trim(); // 可能包含 " 92.05 - 92.10"
-                        existing = goal.toFixed(2) + ' *' + (actualPart ? ' ' + actualPart : '');
-                    } else {
-                        existing = goal.toFixed(2) + ' *';
-                    }
-                }
-                newProgress[key] = existing;
-            }
-            appData.progress = newProgress;
-        }
-
-        // 获取今日的目标体重
-        function getTodayGoal() {
-            const key = getTodayKey();
-            if (appData?.progress?.[key]) {
-                const goalPart = appData.progress[key].split('*')[0].trim();
-                return parseFloat(goalPart) || parseFloat(appData.start);
-            }
-            return parseFloat(appData?.start || 0);
-        }
-
-        // 获取今日实际平均值
-        function getTodayActual() {
-            const key = getTodayKey();
-            const entry = appData?.progress?.[key];
-            if (!entry) return null;
-            const parts = entry.split('*');
-            if (parts.length < 2) return null;
-            const actualsStr = parts[1].trim();
-            if (!actualsStr) return null;
-            // 解析 "92.05 - 92.10"
-            const numbers = actualsStr.split('-').map(s => parseFloat(s.trim())).filter(v => !isNaN(v));
-            if (numbers.length === 0) return null;
-            const avg = numbers.reduce((a,b)=>a+b,0) / numbers.length;
-            return Math.round(avg * 100) / 100;
-        }
-
-        // 获取起始体重
-        function getStartWeight() {
-            return appData ? parseFloat(appData.start) : 0;
-        }
-
-        // 获取目标体重
-        function getGoalWeight() {
-            return appData ? parseFloat(appData.goal) : 0;
-        }
-
-        // 计算进度百分比 (限制0-100)
-        function getProgressPercent() {
-            const start = getStartWeight();
-            const goal = getGoalWeight();
-            const current = getTodayActual() ?? start;  // 若无今日记录，取最近一次有效体重
-            if (start === goal) return 0;   // 防止除以0
-            let percent = (start - current) / (start - goal) * 100;
-            return Math.min(100, Math.max(0, percent));
-        }
-
-        // 保存数据到localStorage并刷新UI
-        function saveAndRender() {
-            if (!appData) return;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-            renderMainView();
-        }
-
-        // 渲染主界面 (图表、卡片、历史等)
-        function renderMainView() {
-            if (!appData) return;
-
-            // 更新头像姓名
-            const name = appData.name || 'E';
-            document.getElementById('avatar').innerText = name.charAt(0).toUpperCase();
-            document.getElementById('headerName').innerText = name;
-            document.getElementById('headerHeight').innerText = appData.height;
-            document.getElementById('headerGoal').innerText = appData.goal;
-
-            // 今日目标
-            const todayGoal = getTodayGoal();
-            document.getElementById('todayGoal').innerText = todayGoal.toFixed(2);
-
-            // 今日实际
-            const todayActual = getTodayActual();
-            const actualDisplay = todayActual !== null ? todayActual.toFixed(2) : '—';
-            document.getElementById('todayActual').innerText = todayActual !== null ? todayActual.toFixed(2) : '—';
-
-            // 起始→目标文字
-            document.getElementById('rangeText').innerText = `${appData.start} kg → ${appData.goal} kg`;
-
-            // 进度条
-            const percent = getProgressPercent();
-            const layer = document.getElementById('progressLayer');
-            layer.style.width = percent + '%';
-            if (todayActual !== null && todayActual > todayGoal) {
-                layer.classList.add('is-over');
-            } else {
-                layer.classList.remove('is-over');
-            }
-
-            // 今日历史记录
-            const key = getTodayKey();
-            const entry = appData.progress?.[key] || '';
-            const parts = entry.split('*');
-            let historyHtml = '';
-            if (parts.length > 1 && parts[1].trim() !== '') {
-                historyHtml = parts[1].trim();  // 显示 "92.05 - 92.10"
-            }
-            document.getElementById('todayHistory').innerText = historyHtml || '今日暂无记录';
-
-            // 更新图表
-            updateChart();
-
-            // 确保主视图显示
-            document.getElementById('setupView').classList.add('is-hidden');
-            document.getElementById('mainView').classList.remove('is-hidden');
-        }
-
-        // 图表绘制
-        function updateChart() {
-            if (!appData) return;
-            const ctx = document.getElementById('weightChart').getContext('2d');
-            const today = new Date();
-            const labels = [];
-            const actualData = [];
-            const goalData = [];
-            const backgroundColors = [];
-
-            // 取最近7天 (包括今天)
-            for (let i = 6; i >= 0; i--) {
-                const d = new Date(today);
-                d.setDate(d.getDate() - i);
-                const month = d.getMonth() + 1;
-                const day = d.getDate();
-                labels.push(`${month}/${day}`);
-
-                // 计算这是第几天 (从开始日)
-                const start = new Date(appData['start-date'].replace(/-/g, '/'));
-                const diffTime = d - start;
-                const diffDays = Math.floor(diffTime / (86400000));
-                let key = diffDays >= 0 ? diffDays.toString().padStart(3,'0') : null;
-
-                let actual = null;
-                let goal = null;
-                if (key && appData.progress?.[key]) {
-                    const parts = appData.progress[key].split('*');
-                    goal = parseFloat(parts[0].trim());
-                    if (parts.length > 1 && parts[1].trim() !== '') {
-                        const nums = parts[1].split('-').map(v=>parseFloat(v.trim())).filter(v=>!isNaN(v));
-                        if (nums.length) actual = nums.reduce((a,b)=>a+b,0)/nums.length;
-                    }
-                }
-                actualData.push(actual);
-                goalData.push(goal);
-
-                // 柱子颜色
-                if (actual === null) backgroundColors.push('#d1d5db'); // 灰
-                else if (actual <= goal) backgroundColors.push('#2ecc71'); // 绿
-                else backgroundColors.push('#e74c3c'); // 红 (双色需求: 全部红色, 因为超了)
-                // 但需求是超出部分红色, 低于等于部分绿色。用chart.js很难一段柱子双色，简化: 整个柱子红色代表超，绿色代表不超，符合用户预期
-            }
-
-            // Y轴范围: base = 最后一天实际体重 (若没有则用目标体重) 四舍五入取整
-            let lastActual = actualData.filter(v => v !== null).pop();
-            if (lastActual === undefined) lastActual = goalData.filter(v => v !== null).pop() || 70;
-            const base = Math.round(lastActual);
-            const yMin = base - 1;
-            const yMax = base + 2;
-
-            if (chartInstance) chartInstance.destroy();
-            chartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: '实际体重 (kg)',
-                            data: actualData,
-                            backgroundColor: backgroundColors,
-                            borderRadius: 8,
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: (context) => {
-                                    const idx = context.dataIndex;
-                                    const actual = actualData[idx];
-                                    const goal = goalData[idx];
-                                    if (actual === null) return '暂无记录';
-                                    return `${actual.toFixed(2)}kg / ${goal?.toFixed(2)}kg`;
-                                }
-                            }
-                        },
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: {
-                            min: yMin,
-                            max: yMax,
-                            grid: { color: '#e5e7eb' },
-                            ticks: { stepSize: 0.5, callback: (val) => val + 'kg' }
-                        }
-                    }
-                }
+                current: 92,
+                targetBMI: 24.0,
+                targetWeight: null
             });
-        }
 
-        // 初始化设置页面的联动
-        function initSetupListeners() {
-            const heightInput = document.getElementById('heightInput');
-            const bmiSlider = document.getElementById('bmiSlider');
-            const bmiDisplay = document.getElementById('bmiValueDisplay');
-            const goalPreview = document.getElementById('goalPreview');
-            const currentWeight = document.getElementById('currentWeightInput');
+            // UI 状态
+            const menuActive = ref(false);
+            const confirmClear = ref(false);
+            const entryWeight = ref('');
+            const chartInstance = ref(null);
 
-            function updateGoalFromBMI() {
-                const h = parseFloat(heightInput.value) || 172;
-                const bmi = parseFloat(bmiSlider.value);
-                bmiDisplay.innerText = bmi.toFixed(2);
-                const goal = bmi * (h/100) ** 2;
-                goalPreview.innerText = goal.toFixed(2);
-            }
-            heightInput.addEventListener('input', updateGoalFromBMI);
-            bmiSlider.addEventListener('input', updateGoalFromBMI);
-            currentWeight.addEventListener('input', () => {
-                // 可以忽略, 但保持滑块不变
+            // 计算今日目标、进度等
+            const todayGoalWeight = computed(() => {
+                if (!userData.value) return '0.00';
+                const start = parseFloat(userData.value.start);
+                const startDate = new Date(userData.value['start-date']);
+                const today = new Date();
+                const diffDays = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
+                const days = diffDays > 0 ? diffDays : 0;
+                let goal = start - days * 0.1;
+                goal = Math.max(goal, parseFloat(userData.value.goal));  // 不低于最终目标
+                return goal.toFixed(2);
             });
-            updateGoalFromBMI();
 
-            // 开始记录验证
-            document.getElementById('startBtn').addEventListener('click', () => {
-                const name = document.getElementById('nameInput').value.trim();
-                const height = parseFloat(document.getElementById('heightInput').value);
-                const current = parseFloat(document.getElementById('currentWeightInput').value);
-                const bmi = parseFloat(bmiSlider.value);
-                if (!name) return alert('姓名不能为空');
-                if (height < 100 || height > 250) return alert('身高范围100-250cm');
-                if (current < 30 || current > 200) return alert('当前体重范围30-200kg');
-                const goalWeight = parseFloat(goalPreview.innerText);
-                // 构造新数据
-                appData = {
-                    name: name,
-                    height: height,
-                    start: current,
-                    'start-date': new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit' }).replace(/\//g,'-'),
-                    goal: goalWeight,
-                    'goal-date': '',
+            // 今日实际体重平均值
+            const currentDisplayWeight = computed(() => {
+                if (!userData.value) return '0.00';
+                const avg = getTodayAvg();
+                return avg !== null ? avg.toFixed(2) : getLatestWeight().toFixed(2);
+            });
+
+            // 进度百分比
+            const progressPercent = computed(() => {
+                if (!userData.value) return 0;
+                const start = parseFloat(userData.value.start);
+                const goal = parseFloat(userData.value.goal);
+                const current = parseFloat(currentDisplayWeight.value);
+                if (start === goal) return 0;
+                let prog = (start - current) / (start - goal) * 100;
+                prog = Math.min(100, Math.max(0, prog));
+                return prog;
+            });
+
+            // 是否超过当日目标 (红色条件)
+            const isOverTarget = computed(() => {
+                const avg = getTodayAvg();
+                if (avg === null) return false;
+                return avg > parseFloat(todayGoalWeight.value);
+            });
+
+            // 今日录入条目
+            const todayEntries = computed(() => {
+                if (!userData.value || !userData.value.progress) return [];
+                const dayKey = getTodayKey();
+                const entry = userData.value.progress[dayKey];
+                if (!entry) return [];
+                // 格式: "目标 * 值1 - 值2 ..."
+                const parts = entry.split('*');
+                if (parts.length < 2) return [];
+                const valuesPart = parts[1].trim();
+                if (!valuesPart) return [];
+                const nums = valuesPart.split('-').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+                return nums;
+            });
+
+            // 头像首字母
+            const userInitials = computed(() => {
+                if (userData.value && userData.value.name) return userData.value.name.charAt(0).toUpperCase();
+                return 'E';
+            });
+
+            // ---------- 辅助函数 ----------
+            function getTodayKey() {
+                const d = new Date();
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            // 根据日期获得天数索引 (从start-date开始第几天)
+            function daysSinceStart(dateStr = null) {
+                if (!userData.value) return 0;
+                const start = new Date(userData.value['start-date']);
+                const target = dateStr ? new Date(dateStr) : new Date();
+                return Math.floor((target - start) / (1000 * 3600 * 24));
+            }
+
+            // 获得今日平均值
+            function getTodayAvg() {
+                if (!userData.value) return null;
+                const dayKey = getTodayKey();
+                const entry = userData.value.progress[dayKey];
+                if (!entry) return null;
+                const nums = extractWeightsFromEntry(entry);
+                if (nums.length === 0) return null;
+                const sum = nums.reduce((a, b) => a + b, 0);
+                return sum / nums.length;
+            }
+
+            // 提取某条目中所有实际体重
+            function extractWeightsFromEntry(entryStr) {
+                if (!entryStr) return [];
+                const parts = entryStr.split('*');
+                if (parts.length < 2) return [];
+                const after = parts[1];
+                return after.split('-').map(s => parseFloat(s.trim())).filter(v => !isNaN(v));
+            }
+
+            // 获取最近一次体重（无论日期）
+            function getLatestWeight() {
+                if (!userData.value || !userData.value.progress) return parseFloat(userData.value.start);
+                const keys = Object.keys(userData.value.progress).sort().reverse(); // 最近日期靠前
+                for (let k of keys) {
+                    const nums = extractWeightsFromEntry(userData.value.progress[k]);
+                    if (nums.length) return nums[nums.length - 1]; // 最后一次录入
+                }
+                return parseFloat(userData.value.start);
+            }
+
+            // 保存数据至localStorage
+            function persist() {
+                if (userData.value) {
+                    localStorage.setItem('weight-diary', JSON.stringify(userData.value));
+                }
+            }
+
+            // 加载本地数据
+            function loadFromStorage() {
+                const saved = localStorage.getItem('weight-diary');
+                if (saved) {
+                    try {
+                        userData.value = JSON.parse(saved);
+                        isInitialized.value = true;
+                    } catch (e) { console.warn('解析失败'); }
+                }
+            }
+
+            // 设置页: 根据BMI计算目标体重
+            function recalcGoalFromBMI() {
+                if (setup.height && setup.targetBMI) {
+                    const hM = setup.height / 100;
+                    setup.targetWeight = parseFloat((setup.targetBMI * hM * hM).toFixed(2));
+                }
+            }
+            function syncGoalFromBMI() {
+                recalcGoalFromBMI();
+            }
+            function syncBMIFromGoal() {
+                if (setup.height && setup.targetWeight) {
+                    const hM = setup.height / 100;
+                    const bmi = setup.targetWeight / (hM * hM);
+                    if (bmi >= 18.5 && bmi <= 28) setup.targetBMI = parseFloat(bmi.toFixed(2));
+                }
+            }
+
+            // 验证开始记录
+            function startRecording() {
+                if (!setup.name || !setup.height || !setup.current || !setup.targetWeight) {
+                    alert('请填写所有必填字段');
+                    return;
+                }
+                if (setup.height < 100 || setup.height > 250) { alert('身高需在100-250cm'); return; }
+                if (setup.current < 30 || setup.current > 200) { alert('当前体重范围30-200kg'); return; }
+                const today = new Date();
+                const y = today.getFullYear(), m = String(today.getMonth()+1).padStart(2,'0'), d = String(today.getDate()).padStart(2,'0');
+                const goalDate = new Date(today);
+                const daysToGoal = Math.ceil((setup.current - setup.targetWeight) / 0.1);
+                if (daysToGoal > 0) goalDate.setDate(today.getDate() + daysToGoal);
+                const goalDateStr = goalDate.toISOString().split('T')[0];
+
+                userData.value = {
+                    name: setup.name,
+                    height: setup.height.toString(),
+                    start: setup.current.toFixed(2),
+                    'start-date': `${y}-${m}-${d}`,
+                    goal: setup.targetWeight.toFixed(2),
+                    'goal-date': goalDateStr,
                     progress: {}
                 };
-                // 初始化第0天
-                refreshAllGoals(); // 会创建所有日期的目标
-                saveAndRender();
-            });
+                isInitialized.value = true;
+                persist();
+            }
 
-            // 导入数据
-            document.getElementById('importBtn').addEventListener('click', () => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.json';
-                input.onchange = e => {
-                    const file = e.target.files[0];
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        try {
-                            const imported = JSON.parse(ev.target.result);
-                            if (!imported.name || !imported.height || !imported.start || !imported.progress) {
-                                throw new Error('格式错误：缺少必要字段');
-                            }
-                            appData = imported;
-                            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-                            renderMainView();
-                        } catch (ex) {
-                            alert('导入失败: ' + ex.message);
+            // 保存体重
+            function saveWeight() {
+                if (!entryWeight.value) return;
+                let val = parseFloat(entryWeight.value);
+                if (isNaN(val)) return;
+                if (val < 30 || val > 200) {
+                    alert('体重范围30-200kg');
+                    return;
+                }
+                val = Math.round(val * 100) / 100; // 两位小数
+                const todayKey = getTodayKey();
+                const goalVal = todayGoalWeight.value;
+                let entryStr = `${goalVal} * `;
+                if (userData.value.progress[todayKey]) {
+                    const old = userData.value.progress[todayKey];
+                    const parts = old.split('*');
+                    if (parts.length >= 2 && parts[1].trim() !== '') {
+                        entryStr = parts[0] + '* ' + parts[1].trim() + ' - ' + val.toFixed(2);
+                    } else {
+                        entryStr = goalVal + '* ' + val.toFixed(2);
+                    }
+                } else {
+                    entryStr = goalVal + '* ' + val.toFixed(2);
+                }
+                userData.value.progress[todayKey] = entryStr;
+                persist();
+                entryWeight.value = '';
+                updateChart();
+            }
+
+            // 导入/导出
+            function triggerImport() { document.getElementById('importFile').click(); }
+            function importData(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const json = JSON.parse(ev.target.result);
+                        if (!json.name || !json.height || !json.start || !json.goal || !json['start-date'] || typeof json.progress !== 'object') {
+                            throw new Error('缺少必要字段');
                         }
-                    };
-                    reader.readAsText(file);
+                        userData.value = json;
+                        isInitialized.value = true;
+                        persist();
+                    } catch (err) {
+                        alert('导入失败: ' + err.message);
+                    } finally {
+                        e.target.value = '';
+                    }
                 };
-                input.click();
-            });
-        }
-
-        // 主界面事件
-        function initMainListeners() {
-            // 菜单
-            const menuBtn = document.getElementById('menuBtn');
-            const dropdown = document.getElementById('dropdownMenu');
-            menuBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                dropdown.classList.toggle('is-active');
-            });
-            document.addEventListener('click', () => dropdown.classList.remove('is-active'));
-
-            // 导出
-            document.getElementById('exportData').addEventListener('click', () => {
-                if (!appData) return;
-                const dataStr = JSON.stringify(appData, null, 2);
+                reader.readAsText(file);
+            }
+            function exportData() {
+                if (!userData.value) return;
+                const dataStr = JSON.stringify(userData.value, null, 2);
                 const blob = new Blob([dataStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `${appData.name}_data.json`;
+                a.download = `${userData.value.name}_data.json`;
                 a.click();
                 URL.revokeObjectURL(url);
-            });
-
-            // 清除数据
-            const modal = document.getElementById('clearModal');
-            document.getElementById('clearData').addEventListener('click', () => {
-                modal.classList.add('is-active');
-            });
-            document.getElementById('cancelClear').addEventListener('click', () => {
-                modal.classList.remove('is-active');
-            });
-            document.getElementById('confirmClear').addEventListener('click', () => {
-                localStorage.removeItem(STORAGE_KEY);
-                appData = null;
-                modal.classList.remove('is-active');
-                document.getElementById('setupView').classList.remove('is-hidden');
-                document.getElementById('mainView').classList.add('is-hidden');
-            });
-
-            // 体重录入回车
-            const weightInput = document.getElementById('weightEntry');
-            weightInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    let val = parseFloat(weightInput.value);
-                    if (isNaN(val)) return;
-                    if (val < 30 || val > 200) {
-                        alert('体重范围30-200kg');
-                        return;
-                    }
-                    val = Math.round(val * 100) / 100; // 两位小数
-                    const key = getTodayKey();
-                    let entry = appData.progress?.[key] || '';
-                    if (!entry) {
-                        const goal = getTodayGoal();
-                        entry = goal.toFixed(2) + ' *';
-                    }
-                    // 添加新记录到后面
-                    const parts = entry.split('*');
-                    const base = parts[0].trim();
-                    let actuals = parts.length > 1 ? parts[1].trim() : '';
-                    if (actuals) actuals += ' - ' + val.toFixed(2);
-                    else actuals = val.toFixed(2);
-                    appData.progress[key] = `${base} * ${actuals}`;
-                    weightInput.value = ''; // 清空
-                    saveAndRender();
-                }
-            });
-        }
-
-        // 启动时检查localStorage
-        function loadFromStorage() {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                try {
-                    appData = JSON.parse(saved);
-                    document.getElementById('setupView').classList.add('is-hidden');
-                    document.getElementById('mainView').classList.remove('is-hidden');
-                    renderMainView();
-                } catch (e) {
-                    console.warn('解析失败，进入设置');
-                }
+                menuActive.value = false;
             }
-        }
+            function clearAllData() {
+                localStorage.removeItem('weight-diary');
+                userData.value = null;
+                isInitialized.value = false;
+                confirmClear.value = false;
+                menuActive.value = false;
+            }
 
-        // 初始化所有
-        window.addEventListener('load', () => {
-            initSetupListeners();
-            initMainListeners();
+            // 图表绘制 (最近7天)
+            function updateChart() {
+                if (!userData.value) return;
+                const ctx = document.getElementById('weightChart')?.getContext('2d');
+                if (!ctx) return;
+                if (chartInstance.value) chartInstance.value.destroy();
+
+                const today = new Date();
+                const labels = [];
+                const actualData = [];
+                const goalData = [];
+                const colors = [];
+
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date(today);
+                    d.setDate(today.getDate() - i);
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth()+1).padStart(2,'0');
+                    const day = String(d.getDate()).padStart(2,'0');
+                    const key = `${year}-${month}-${day}`;
+                    labels.push(`${month}/${day}`);
+                    // 当日目标体重 = start - days*0.1 (不低于goal)
+                    const start = parseFloat(userData.value.start);
+                    const startDate = new Date(userData.value['start-date']);
+                    const diffDays = Math.floor((d - startDate) / (86400000));
+                    let goal = start - (diffDays > 0 ? diffDays : 0) * 0.1;
+                    goal = Math.max(goal, parseFloat(userData.value.goal));
+                    goalData.push(goal);
+
+                    let avg = null;
+                    if (userData.value.progress[key]) {
+                        const nums = extractWeightsFromEntry(userData.value.progress[key]);
+                        if (nums.length) avg = nums.reduce((a,b)=>a+b,0)/nums.length;
+                    }
+                    if (avg !== null) {
+                        actualData.push(avg);
+                        // 柱子颜色逻辑：低于等于目标全绿；否则分两段，但chart.js需要纯色，我们用绿色柱子 + 红色覆盖层太复杂，简化：如果超标柱子变橙红色，未超标绿色，无数据灰色。
+                        colors.push(avg <= goal ? 'rgba(76, 175, 146, 0.9)' : 'rgba(229, 138, 124, 0.9)');
+                    } else {
+                        actualData.push(null); // 无数据
+                        colors.push('#cfd8dc');
+                    }
+                }
+
+                // Y轴范围: base取最后一个有效实际体重四舍五入
+                let base = 70;
+                for (let i = actualData.length-1; i>=0; i--) {
+                    if (actualData[i] !== null) { base = Math.round(actualData[i]); break; }
+                }
+                const yMin = base - 1;
+                const yMax = base + 2;
+
+                chartInstance.value = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: '实际体重',
+                                data: actualData,
+                                backgroundColor: colors,
+                                borderRadius: 8,
+                                barPercentage: 0.6,
+                            },
+                            {
+                                label: '目标体重',
+                                data: goalData,
+                                type: 'line',
+                                borderColor: '#1e2b2f',
+                                borderWidth: 2,
+                                pointRadius: 3,
+                                pointBackgroundColor: '#1e2b2f',
+                                fill: false,
+                                tension: 0.1,
+                                order: 0,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => {
+                                        if (ctx.dataset.label === '实际体重') {
+                                            const goal = goalData[ctx.dataIndex];
+                                            const act = actualData[ctx.dataIndex];
+                                            return act ? `${act.toFixed(2)}kg / ${goal.toFixed(2)}kg` : '暂无记录';
+                                        }
+                                        return '';
+                                    }
+                                }
+                            },
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { min: yMin, max: yMax, grid: { color: '#e0e4e8' }, title: { display: false } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            // 生命周期与watch
             loadFromStorage();
-        });
-    })();
+            watch(isInitialized, (val) => { if (val) nextTick(() => updateChart()); });
+            watch(() => userData.value, (val) => { if (val) { nextTick(() => updateChart()); } }, { deep: true });
+
+            // 关闭dropdown点击外部
+            window.addEventListener('click', (e) => {
+                if (!e.target.closest('.dropdown')) menuActive.value = false;
+            });
+
+            // 初始化setup目标体重
+            if (!setup.targetWeight && setup.height && setup.targetBMI) recalcGoalFromBMI();
+
+            return {
+                isInitialized, userData, setup, menuActive, confirmClear, entryWeight,
+                todayGoalWeight, currentDisplayWeight, progressPercent, isOverTarget, todayEntries, userInitials,
+                syncGoalFromBMI, syncBMIFromGoal, recalcGoalFromBMI,
+                startRecording, saveWeight, triggerImport, importData, exportData, clearAllData,
+                toggleMenu: () => menuActive.value = !menuActive.value,
+            };
+        }
+    });
+
+    app.mount('#app');
 </script>
 </body>
 </html>
